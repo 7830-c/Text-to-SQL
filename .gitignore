@@ -1,0 +1,13 @@
+# Environments
+.env
+
+# Python caching
+__pycache__/
+
+# Project data and resources
+spider_data/
+Important_Links_resources
+
+test.py
+
+results_test
