@@ -1,11 +1,11 @@
 import sqlite3
 from pathlib import Path
-from config import SPIDER_DIR
-
+from config import SPIDER_DIR, UPLOAD_DIR
 
 def get_db_path(db_id):
+    if db_id.startswith("upload_"):
+        return Path(UPLOAD_DIR) / f"{db_id}.sqlite"
     return Path(SPIDER_DIR) / "database" / db_id / f"{db_id}.sqlite"
-
 
 def _q(name):
     """Safely quote a table/column name for SQL."""
@@ -29,7 +29,7 @@ def get_schema(db_id, n_samples=3):
             f"Database not found: {path}\nCheck SPIDER_DIR in config.py"
         )
 
-    conn = sqlite3.connect(str(path))
+    conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
     conn.text_factory = lambda b: b.decode("utf-8", errors="ignore")
     cur = conn.cursor()
 

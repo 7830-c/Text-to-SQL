@@ -17,17 +17,10 @@ class AgentState(TypedDict):
     result: Optional[List[Any]]
     error: Optional[str]
     retry_count: int
-    history: List[dict]   # step-by-step trace, used for the UI and error analysis
+    history: List[dict]
 
 
-def build_graph(use_retrieval=True, max_retries=3, k=3):
-    """
-    One graph, three experiments:
-      baseline        -> use_retrieval=False, max_retries=0
-      + retrieval     -> use_retrieval=True,  max_retries=0
-      + self-correct  -> use_retrieval=True,  max_retries=3
-    """
-
+def build_graph(use_retrieval=True, max_retries=3, k=3, provider=None, api_key=None):
     def retrieve_schema(state):
         if use_retrieval:
             tables = retrieve(state["question"], state["db_id"], k=k)["tables"]
@@ -43,9 +36,8 @@ def build_graph(use_retrieval=True, max_retries=3, k=3):
             sql = state["sql"]
         else:
             prompt = GENERATOR_PROMPT.format(
-                schema=state["schema_text"], question=state["question"]
-            )
-            sql = clean_sql(ask_llm(prompt))
+                schema=state["schema_text"], question=state["question"])
+            sql = clean_sql(ask_llm(prompt, provider=provider, api_key=api_key))
         entry = {"step": "generate", "sql": sql}
         return {"sql": sql, "history": state["history"] + [entry]}
 
@@ -58,9 +50,8 @@ def build_graph(use_retrieval=True, max_retries=3, k=3):
     def correct(state):
         prompt = CORRECTOR_PROMPT.format(
             schema=state["schema_text"], question=state["question"],
-            sql=state["sql"], error=state["error"],
-        )
-        new_sql = clean_sql(ask_llm(prompt))
+            sql=state["sql"], error=state["error"])
+        new_sql = clean_sql(ask_llm(prompt, provider=provider, api_key=api_key))
         entry = {"step": "correct", "sql": new_sql, "attempt": state["retry_count"] + 1}
         return {"sql": new_sql, "retry_count": state["retry_count"] + 1,
                 "history": state["history"] + [entry]}
@@ -69,7 +60,7 @@ def build_graph(use_retrieval=True, max_retries=3, k=3):
         if state["error"] is None:
             return "done"
         if state["retry_count"] >= max_retries:
-            return "done"   # out of retries: stop instead of looping forever
+            return "done"
         return "fix"
 
     g = StateGraph(AgentState)
@@ -82,15 +73,26 @@ def build_graph(use_retrieval=True, max_retries=3, k=3):
     g.add_edge("retrieve_schema", "generate")
     g.add_edge("generate", "execute")
     g.add_conditional_edges("execute", route, {"done": END, "fix": "correct"})
-    g.add_edge("correct", "execute")   # the loop-back edge
-
+    g.add_edge("correct", "execute")
     return g.compile()
 
 
-def run_agent(question, db_id, use_retrieval=True, max_retries=3, k=3, seed_sql=""):
-    app = build_graph(use_retrieval, max_retries, k)
-    return app.invoke({
-        "question": question, "db_id": db_id, "schema_text": "", "tables": [],
-        "sql": seed_sql, "result": None, "error": None,
-        "retry_count": 0, "history": [],
-    })
+def _start_state(question, db_id, seed_sql=""):
+    return {"question": question, "db_id": db_id, "schema_text": "", "tables": [],
+            "sql": seed_sql, "result": None, "error": None,
+            "retry_count": 0, "history": []}
+
+
+def run_agent(question, db_id, use_retrieval=True, max_retries=3, k=3,
+              seed_sql="", provider=None, api_key=None):
+    app = build_graph(use_retrieval, max_retries, k, provider, api_key)
+    return app.invoke(_start_state(question, db_id, seed_sql))
+
+
+def stream_agent(question, db_id, use_retrieval=True, max_retries=3, k=3,
+                 provider=None, api_key=None):
+    """For the UI: yields (node_name, update) as each step finishes."""
+    app = build_graph(use_retrieval, max_retries, k, provider, api_key)
+    for chunk in app.stream(_start_state(question, db_id), stream_mode="updates"):
+        for node, update in chunk.items():
+            yield node, update

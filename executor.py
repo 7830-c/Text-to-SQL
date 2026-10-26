@@ -48,3 +48,25 @@ def run_sql(db_id, sql, timeout_s=30):
         return None, f"{type(e).__name__}: {e}"
     finally:
         conn.close()
+        
+        
+def preview_sql(db_id, sql, limit=200, timeout_s=30):
+    """For the UI. Returns (column_names, rows, has_more, error), same safety rules as run_sql."""
+    problem = check_safe(sql)
+    if problem:
+        return None, None, False, problem
+
+    path = get_db_path(db_id).resolve()
+    conn = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)
+    conn.text_factory = lambda b: b.decode("utf-8", errors="ignore")
+    deadline = time.time() + timeout_s
+    conn.set_progress_handler(lambda: 1 if time.time() > deadline else 0, 10000)
+    try:
+        cur = conn.execute(sql)
+        cols = [d[0] for d in cur.description]
+        rows = cur.fetchmany(limit + 1)
+        return cols, rows[:limit], len(rows) > limit, None
+    except Exception as e:
+        return None, None, False, f"{type(e).__name__}: {e}"
+    finally:
+        conn.close()
