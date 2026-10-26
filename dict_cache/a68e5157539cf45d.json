@@ -1,0 +1,41 @@
+{
+ "overview": "This database is designed to manage and analyze academic research data, including publications, authors, and organizations. It tracks metadata such as citations, keywords, and publication venues like conferences and journals. Additionally, it organizes all major entities around specific research domains to facilitate topical exploration.",
+ "areas": [
+  "Publications and citations: publication, cite, writes",
+  "Authors and organizations: author, organization",
+  "Venues: conference, journal",
+  "Research domains: domain, domain_author, domain_conference, domain_journal",
+  "Keywords and domain mapping: keyword, domain_keyword, publication_keyword, domain_publication"
+ ],
+ "notes": [
+  "aid in domain_author and author refers to authors.",
+  "did in domain_author, domain_conference, domain_journal, and domain_keyword refers to domains.",
+  "cid in conference and publication refers to conferences.",
+  "jid in journal and publication refers to journals.",
+  "The did column in domain_publication likely points to a domain ID.",
+  "The pid column represents a publication ID across multiple tables.",
+  "The oid column in organization likely serves as the organization ID.",
+  "The aid and kid columns likely represent author ID and keyword ID respectively."
+ ],
+ "tables": {
+  "author": "Stores author details including their identification, name, and homepage.",
+  "conference": "Stores conference details including their identification, name, and homepage.",
+  "domain": "Stores research domains with their identification and name.",
+  "domain_author": "Relates authors to their respective research domains.",
+  "domain_conference": "Relates conferences to their respective research domains.",
+  "journal": "Stores journal details including their identification, name, and homepage.",
+  "domain_journal": "Relates journals to their respective research domains.",
+  "keyword": "Stores keywords with their identification and text.",
+  "domain_keyword": "Relates keywords to their respective research domains.",
+  "publication": "Stores academic publications with details like title, abstract, year, and citation counts.",
+  "domain_publication": "Stores the relationship between domains and publications.",
+  "organization": "Stores details about organizations including their name, continent, and homepage.",
+  "publication_keyword": "Stores the relationship between publications and keywords.",
+  "writes": "Stores the relationship between authors and the publications they write.",
+  "cite": "Stores citation relationships where one publication cites another."
+ },
+ "n_tables": 15,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-10-26"
+}

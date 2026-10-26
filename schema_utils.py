@@ -70,6 +70,29 @@ def get_schema(db_id, n_samples=3):
 
         schema[t] = {"columns": cols, "fks": fks, "samples": samples}
 
+        # Big database with almost no declared keys: guess links such as user_id -> accounts_user.id
+    declared = sum(len(v["fks"]) for v in schema.values())
+    if len(names) > 30 and declared < len(names) // 10:
+        by_key = {}
+        for t in names:
+            low = t.lower()
+            by_key.setdefault(low, set()).add(t)
+            if "_" in low:
+                by_key.setdefault(low.split("_", 1)[1], set()).add(t)
+        for t, info in schema.items():
+            have = {fk["from"].lower() for fk in info["fks"]}
+            for col in info["columns"]:
+                name = col["name"].lower()
+                if not name.endswith("_id") or name == "id" or name in have:
+                    continue
+                targets = by_key.get(name[:-3], set())
+                if len(targets) != 1:
+                    continue                      # no match, or ambiguous: skip
+                target = next(iter(targets))
+                if target != t and any(c["name"].lower() == "id" for c in schema[target]["columns"]):
+                    info["fks"].append({"from": col["name"], "ref_table": target,
+                                        "to": "id", "inferred": True})
+    
     conn.close()
     return schema
 

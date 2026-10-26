@@ -1,9 +1,10 @@
+import sqlite3
 import time
 import uuid
-import sqlite3
 from pathlib import Path
 
 import config
+import dictionary
 
 
 def save_upload(file_bytes):
@@ -37,6 +38,7 @@ def delete_upload(db_id):
     if db_id and db_id.startswith("upload_"):
         for ext in ("", "-wal", "-shm"):
             (Path(config.UPLOAD_DIR) / f"{db_id}.sqlite{ext}").unlink(missing_ok=True)
+        dictionary.forget(db_id)
 
 
 def cleanup_old_uploads():
@@ -45,9 +47,11 @@ def cleanup_old_uploads():
     if not folder.exists():
         return
     cutoff = time.time() - config.UPLOAD_TTL_MIN * 60
-    for f in folder.glob("upload_*.sqlite"):
+    for f in folder.glob("upload_*"):
         try:
             if f.stat().st_mtime < cutoff:
                 f.unlink()
+                if f.suffix == ".sqlite":
+                    dictionary.forget(f.stem)
         except OSError:
             pass

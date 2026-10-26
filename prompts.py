@@ -7,7 +7,7 @@ Rules:
 - Use only columns that exist in the schema.
 
 Schema:
-{schema}
+{schema}{context}
 
 Question: {question}
 
@@ -22,7 +22,7 @@ Rules:
 - Read the database error carefully; it tells you what is wrong.
 
 Schema:
-{schema}
+{schema}{context}
 
 Question: {question}
 
@@ -49,3 +49,34 @@ Tables:
 {catalog}
 
 Table names:"""
+
+
+
+DICT_BATCH_PROMPT = """You document a database for people who have never seen it.
+Below are some of its tables with their columns (name:type). Tables marked [empty] have no rows.
+
+Return ONE JSON object with exactly two keys:
+- "tables": an object mapping each table name to ONE plain sentence (max 20 words) saying what the table stores.
+- "notes": a list of up to 4 short strings about how columns or tables relate or are named, for example which
+  columns together hold a person's full name, or which ID columns point to which table. Only include notes you
+  are fairly sure of. Use [] if there are none.
+
+Do not invent business details the names do not support.
+Return only the JSON.
+
+Tables:
+{catalog}"""
+
+
+DICT_OVERVIEW_PROMPT = """Write a short overview of a database for someone who is about to ask questions about it.
+Below are its tables with one-line descriptions.
+
+Return ONE JSON object with exactly these keys:
+- "overview": 2 to 4 plain sentences on what the database seems to be for.
+- "areas": a list of up to 8 short strings, each naming a main area and its key tables,
+  for example "Users and logins: accounts_user, accounts_passwordresetotp".
+
+Return only the JSON.
+
+Tables:
+{lines}"""

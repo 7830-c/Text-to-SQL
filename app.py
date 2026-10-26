@@ -3,6 +3,10 @@ import json
 import threading
 from pathlib import Path
 
+import math
+
+import dictionary
+
 import pandas as pd
 import streamlit as st
 
@@ -63,7 +67,12 @@ def chips(history):
         elif s == "generate":
             label, cls = "Generate SQL", "ok"
         elif s == "execute":
-            label, cls = ("Execute", "ok") if h["ok"] else ("Execute: error", "bad")
+            if h.get("soft"):
+                label, cls = "Execute: 0 rows", "fix"
+            elif h["ok"]:
+                label, cls = "Execute", "ok"
+            else:
+                label, cls = "Execute: error", "bad"
         else:
             label, cls = f"Correct #{h['attempt']}", "fix"
         parts.append(f'<span class="chip {cls}">{label}</span>')
@@ -118,19 +127,32 @@ def agent_report(r):
                 if h.get("note"):
                     st.caption(h["note"])
                 st.code(h["sql"], language="sql")
+                
+                if h.get("used_dictionary"):
+                    st.caption("The prompt included the database overview and descriptions of the chosen tables.")
                 if show and h.get("prompt"):
                     st.caption("Prompt sent:")
                     st.code(h["prompt"], language="text")
 
             elif s == "execute":
-                if h["ok"]:
+                if h.get("soft"):
+                    st.markdown(f"**{i}. Run query** · 0 rows, the agent was asked to adjust · {t}")
+                    if h.get("tried_relaxed"):
+                        st.caption("A case-insensitive version of the same query also returned 0 rows.")
+                    for ev in h.get("evidence", []):
+                        st.caption(ev)
+                elif h["ok"]:
                     st.markdown(f"**{i}. Run query** · ran without error · {h.get('rows')} rows · {t}")
-                    if h.get("rows") == 0:
-                        st.warning("The query returned 0 rows. The agent cannot tell whether that is "
-                                   "correct, so check the SQL and the values it filters on.")
+                    if h.get("relaxed_from"):
+                        st.success("Exact matching returned 0 rows, so the text filters were retried ignoring "
+                                   "capitalization and extra spaces. The query that ran is in the SQL tab. Original:")
+                        st.code(h["relaxed_from"], language="sql")
+                    elif h.get("rows") == 0:
+                        st.warning("The query returned 0 rows, and the agent could not tell whether that is "
+                                   "correct. Check the SQL and the values it filters on.")
                 else:
                     st.markdown(f"**{i}. Run query** · database error · {t}")
-                    st.code(h["error"], language="text")
+                    st.code(h["error"], language="text")            
 
             else:
                 st.markdown(f"**{i}. Correction attempt {h['attempt']}** · {who(h)} · {t}")
@@ -154,6 +176,9 @@ def show_result(r):
     with t_ans:
         if r["df"] is not None:
             st.dataframe(r["df"])
+            if len(r["df"]) == 0:
+                st.warning("No rows matched. If you expected results, open the agent report above to see "
+                           "what was tried.")
             note = f"{len(r['df'])} rows"
             if r["more"]:
                 note += f" (first {config.UI_ROW_LIMIT} shown)"
@@ -165,6 +190,55 @@ def show_result(r):
     with t_schema:
         st.write("Tables sent to the model:", ", ".join(r["tables"]))
         st.code(r["schema_text"], language="sql")
+        
+        
+def overview_panel(db_id, provider, api_key):
+    try:
+        n = dictionary.table_count(db_id)
+    except Exception:
+        return
+    d = dictionary.load_cached(db_id)
+    persist = not (config.PUBLIC_MODE and db_id.startswith("upload_"))   # never keep strangers' data on disk
+    needed = math.ceil(n / config.DICT_BATCH_TABLES) + 1
+    auto = (not config.PUBLIC_MODE) and n >= config.DICT_AUTO_MIN_TABLES
+
+    with st.expander("Database overview", expanded=True):
+        if d is None:
+            if config.PUBLIC_MODE and not api_key:
+                st.info(f"Paste your own API key in the sidebar to build an overview "
+                        f"(about {needed} model calls).")
+            else:
+                if not auto:
+                    st.caption("Optional. It helps most on databases with many tables.")
+                clicked = st.button(f"Build overview ({needed} model calls)", key=f"build_{db_id}")
+                tried = st.session_state.get(f"tried_{db_id}", False)
+                if clicked or (auto and not tried):
+                    st.session_state[f"tried_{db_id}"] = True
+                    bar = st.progress(0.0, text="Starting...")
+                    try:
+                        d = dictionary.build(
+                            db_id, provider, api_key, persist=persist,
+                            progress=lambda done, total, msg: bar.progress(min(done / total, 1.0), text=msg))
+                    except Exception as e:
+                        st.error(f"Could not build the overview: {str(e)[:300]}")
+                    bar.empty()
+
+        if d is not None:
+            if d.get("overview"):
+                st.write(d["overview"])
+            for a in d.get("areas", []):
+                st.markdown(f"- {a}")
+            st.caption(f"{len(d['tables'])} of {d['n_tables']} tables described by "
+                       f"{d.get('model') or 'the model'}. These descriptions are generated from table and "
+                       "column names, so they can be wrong.")
+            if d.get("notes"):
+                st.markdown("**Notes the model inferred:**\n" + "\n".join(f"- {x}" for x in d["notes"]))
+            st.dataframe(pd.DataFrame([{"table": t, "description": v} for t, v in d["tables"].items()]),
+                         height=250)
+            if st.button("Rebuild overview", key=f"rebuild_{db_id}"):
+                dictionary.forget(db_id, delete_disk=True)
+                st.session_state.pop(f"tried_{db_id}", None)
+                st.rerun()
 
 # ---------- sidebar ----------
 provider, api_key = None, None
@@ -183,7 +257,7 @@ with st.sidebar:
     else:
         st.caption(
             "**Sent to the AI provider:** your question, the table and column names and types, "
-            "and any SQL error messages. **Not sent:** the rows in your database. "
+            "whether each table is empty, short descriptions generated from those, and any SQL error messages.**Not sent:** the rows in your database. "
             f"Files are deleted when you replace them, or after about {config.UPLOAD_TTL_MIN} minutes. "
             "Even so, do not upload confidential data. Names can be sensitive, and providers' "
             "terms for free API keys may allow using prompts to improve their products."
@@ -208,6 +282,10 @@ with st.sidebar:
         st.caption(f"Databases with up to {config.SKIP_RETRIEVAL_BELOW} tables send every table. "
                    "Larger ones use schema retrieval.")
         st.toggle("Show full prompts in the agent report", key="show_prompts")
+        st.toggle("Let the agent look at values in my data when a query returns nothing",
+                  value=not config.PUBLIC_MODE, key="look_at_data",
+                  help="If a query returns 0 rows, a few real values from the columns it filtered on "
+                       "(for example how a name is spelled) are sent to the AI provider to help it fix the query.")
 
     if config.PUBLIC_MODE:
         st.divider()
@@ -228,6 +306,8 @@ st.caption("Ask in plain English. The agent writes SQL, runs it, and fixes its o
 tab_ask, tab_bench = st.tabs(["Ask", "Benchmark"])
 
 with tab_ask:
+    if db_id:
+        overview_panel(db_id, provider, api_key)
     if db_id and source == "Sample database":
         for i, q in enumerate(example_questions(db_id)):
             st.button(q, key=f"ex{i}", on_click=lambda q=q: st.session_state.update(q=q))
@@ -262,7 +342,9 @@ with tab_ask:
                 with st.status("Working on it...", expanded=True) as status:
                     for node, update in stream_agent(question.strip(), db_id, use_retrieval, max_retries,
                                                      config.RETRIEVAL_K, provider, api_key,
-                                                     picker=n_tables > config.PICKER_MIN_TABLES):
+                                                     picker=n_tables > config.PICKER_MIN_TABLES,
+                                                     robust=True,
+                                                     look_at_data=st.session_state.get("look_at_data", False)):
                         state.update(update)
                         
                         if node == "retrieve_schema":
@@ -271,10 +353,21 @@ with tab_ask:
                         elif node == "generate":
                             st.write("Wrote a SQL query")
                         elif node == "execute":
-                            st.write("Query ran successfully" if update["error"] is None
-                                     else f"Database error: {update['error']}")
+                            h = update["history"][-1]
+                            if h.get("soft"):
+                                st.write("Query ran but returned 0 rows. Asking the model to adjust the filters.")
+                            elif h.get("relaxed_from"):
+                                st.write(f"0 rows with exact matching. Retried ignoring capitalization: {h['rows']} rows.")
+                            elif update["error"] is None:
+                                st.write(f"Query ran successfully ({h['rows']} rows)")
+                            else:
+                                st.write(f"Database error: {update['error']}")
                         elif node == "correct":
                             st.write(f"Correction attempt {update['retry_count']}: rewrote the query")
+                    
+                    last_exec = next((h for h in reversed(state["history"]) if h["step"] == "execute"), None)
+                    if last_exec and last_exec.get("soft"):
+                        state["error"] = None
                     ok = state["error"] is None
                     status.update(label="Done" if ok else "Could not get a working query",
                                   state="complete" if ok else "error", expanded=False)

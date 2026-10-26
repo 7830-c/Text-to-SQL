@@ -1,4 +1,5 @@
 from functools import lru_cache
+from dictionary import get as get_dictionary
 
 import numpy as np
 import faiss
@@ -21,8 +22,7 @@ def _embed(texts):
 def _embed_question(question):
     return _embed([question])
 
-
-def table_to_document(name, info):
+def table_to_document(name, info, desc=""):
     """Short natural-language description of one table, used for embedding."""
     parts = []
     for c in info["columns"]:
@@ -32,23 +32,33 @@ def table_to_document(name, info):
         if is_texty and vals:
             text += " (e.g. " + ", ".join(vals) + ")"
         parts.append(text)
-    return f"table {name.replace('_', ' ')}: columns " + ", ".join(parts)
+    doc = f"table {name.replace('_', ' ')}: columns " + ", ".join(parts)
+    return f"{desc} {doc}" if desc else doc      # the description comes first so it is never cut off
+
 
 
 def build_index(db_id):
-    """Build (or fetch from cache) a FAISS index over this database's tables."""
-    if db_id in _cache:
+    """Build (or fetch from cache) a FAISS index. Rebuilt once if an overview appears later."""
+    d = get_dictionary(db_id)
+    enriched = bool(d)
+    if db_id in _cache and _cache[db_id]["enriched"] == enriched:
         return _cache[db_id]
 
     schema = get_schema(db_id)
-    names = list(schema.keys())  # position i in FAISS == names[i]
-    docs = [table_to_document(n, schema[n]) for n in names]
+    names = list(schema.keys())
+    if len(names) > 30:    # big database: tables with no rows cannot answer anything
+        non_empty = [n for n in names if schema[n].get("rows", 1) != 0]
+        if non_empty:
+            names = non_empty
 
+    descs = d["tables"] if d else {}
+    docs = [table_to_document(n, schema[n], descs.get(n, "")) for n in names]
     vecs = _embed(docs)
     index = faiss.IndexFlatIP(vecs.shape[1])
     index.add(vecs)
 
-    _cache[db_id] = {"index": index, "names": names, "schema": schema, "docs": docs}
+    _cache[db_id] = {"index": index, "names": names, "schema": schema,
+                     "docs": docs, "enriched": enriched}
     return _cache[db_id]
 
 
@@ -93,8 +103,7 @@ def retrieve(question, db_id, k=3, use_fk_expansion=True):
 
 def all_tables(db_id):
     """For the baseline run: every table, no retrieval."""
-    return build_index(db_id)["names"]
-
+    return list(build_index(db_id)["schema"].keys())
 
 def format_schema(db_id, tables):
     """Turn chosen tables into CREATE TABLE text to paste into the LLM prompt."""
@@ -110,10 +119,12 @@ def format_schema(db_id, tables):
             lines.append("  PRIMARY KEY (" + ", ".join(f'"{p}"' for p in pks) + ")")
 
         for fk in info["fks"]:
-            if fk["ref_table"] in keep:
+            if fk["ref_table"] in keep and not fk.get("inferred"):
                 target = f' ("{fk["to"]}")' if fk["to"] else ""
-                lines.append(
-                    f'  FOREIGN KEY ("{fk["from"]}") REFERENCES "{fk["ref_table"]}"{target}'
-                )
-        blocks.append(f'CREATE TABLE "{t}" (\n' + ",\n".join(lines) + "\n);")
+                lines.append(f'  FOREIGN KEY ("{fk["from"]}") REFERENCES "{fk["ref_table"]}"{target}')
+        block = f'CREATE TABLE "{t}" (\n' + ",\n".join(lines) + "\n);"
+
+        hints = [f'-- likely join (inferred from names): "{t}"."{fk["from"]}" = "{fk["ref_table"]}"."{fk["to"]}"'
+                 for fk in info["fks"] if fk.get("inferred") and fk["ref_table"] in keep]
+        blocks.append(block + ("\n" + "\n".join(hints) if hints else ""))
     return "\n\n".join(blocks)

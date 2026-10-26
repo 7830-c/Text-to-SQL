@@ -12,4 +12,5 @@ test.py
 
 results_test
 
+dict_cache/private_*
 uploads/

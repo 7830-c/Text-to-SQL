@@ -53,3 +53,12 @@ DEMO_QUESTIONS_PER_SESSION = int(os.getenv("DEMO_QUESTIONS_PER_SESSION", "5"))
 DEMO_DAILY_LIMIT = int(os.getenv("DEMO_DAILY_LIMIT", "200"))   # questions per day, all visitors combined
 
 PICKER_MIN_TABLES = int(os.getenv("PICKER_MIN_TABLES", "30"))   # databases bigger than this use the LLM table picker
+
+
+
+# database overview
+DICT_DIR = os.getenv("DICT_DIR", "dict_cache")
+DICT_BATCH_TABLES = int(os.getenv("DICT_BATCH_TABLES", "10"))      # tables described per model call
+DICT_AUTO_MIN_TABLES = int(os.getenv("DICT_AUTO_MIN_TABLES", "15"))  # local mode builds automatically at or above this
+
+SOFT_RETRIES = int(os.getenv("SOFT_RETRIES", "2"))   # model attempts after a query returns 0 rows
