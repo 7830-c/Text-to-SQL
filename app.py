@@ -78,6 +78,69 @@ def example_questions(db_id):
     dev = json.load(open(p, encoding="utf-8"))
     return [x["question"] for x in dev if x["db_id"] == db_id][:3]
 
+def agent_report(r):
+    hist = r["history"]
+    total = sum(h.get("seconds", 0) for h in hist)
+    models = sorted({f"{h['llm']['model']} ({h['llm']['provider']})" for h in hist if h.get("llm")})
+    fixes = sum(1 for h in hist if h["step"] == "correct")
+    show = st.session_state.get("show_prompts", False)
+
+    def who(h):
+        return h["llm"]["model"] if h.get("llm") else ""
+
+    with st.expander("How the agent got this answer"):
+        st.caption(f"{len(hist)} steps, {total:.1f}s in total (includes rate-limit waits). "
+                   f"Model: {', '.join(models) or 'none called'}. Corrections: {fixes}.")
+        for i, h in enumerate(hist, 1):
+            s, t = h["step"], f"{h.get('seconds', 0):.1f}s"
+            if i > 1:
+                st.divider()
+
+            if s == "retrieve_schema":
+                st.markdown(f"**{i}. Choose tables** · {h.get('method', '')} · {t}")
+                st.write(f"Sent {len(h['tables'])} of {h.get('total_tables', len(h['tables']))} "
+                         f"tables: " + ", ".join(h["tables"]))
+                if h.get("picked"):
+                    st.caption("Picked by the model: " + ", ".join(h["picked"]))
+                if h.get("added_by_fk"):
+                    st.caption("Added through foreign keys: " + ", ".join(h["added_by_fk"]))
+                if h.get("scores"):
+                    st.caption("Similarity scores: " + ", ".join(f"{k} {v}" for k, v in h["scores"].items()))
+                if show and h.get("raw_answer"):
+                    st.caption("Raw model reply:")
+                    st.code(h["raw_answer"], language="text")
+                if show and h.get("prompt"):
+                    st.caption("Prompt sent:")
+                    st.code(h["prompt"], language="text")
+
+            elif s == "generate":
+                st.markdown(f"**{i}. Write SQL** · {who(h)} · {t}")
+                if h.get("note"):
+                    st.caption(h["note"])
+                st.code(h["sql"], language="sql")
+                if show and h.get("prompt"):
+                    st.caption("Prompt sent:")
+                    st.code(h["prompt"], language="text")
+
+            elif s == "execute":
+                if h["ok"]:
+                    st.markdown(f"**{i}. Run query** · ran without error · {h.get('rows')} rows · {t}")
+                    if h.get("rows") == 0:
+                        st.warning("The query returned 0 rows. The agent cannot tell whether that is "
+                                   "correct, so check the SQL and the values it filters on.")
+                else:
+                    st.markdown(f"**{i}. Run query** · database error · {t}")
+                    st.code(h["error"], language="text")
+
+            else:
+                st.markdown(f"**{i}. Correction attempt {h['attempt']}** · {who(h)} · {t}")
+                st.caption("The model was shown the failed query and the database error from the "
+                           "previous step, then rewrote the query.")
+                st.code(h["sql"], language="sql")
+                if show and h.get("prompt"):
+                    st.caption("Prompt sent:")
+                    st.code(h["prompt"], language="text")
+
 
 def show_result(r):
     st.markdown(chips(r["history"]), unsafe_allow_html=True)
@@ -85,7 +148,9 @@ def show_result(r):
         st.error("The agent could not get a working query. Last database error:")
         st.code(r["error"])
 
-    t_ans, t_sql, t_schema, t_trace = st.tabs(["Answer", "SQL", "Schema used", "Trace"])
+    agent_report(r)
+
+    t_ans, t_sql, t_schema = st.tabs(["Answer", "SQL", "Schema used"])
     with t_ans:
         if r["df"] is not None:
             st.dataframe(r["df"])
@@ -100,22 +165,6 @@ def show_result(r):
     with t_schema:
         st.write("Tables sent to the model:", ", ".join(r["tables"]))
         st.code(r["schema_text"], language="sql")
-    with t_trace:
-        for h in r["history"]:
-            s = h["step"]
-            if s == "retrieve_schema":
-                st.markdown("**Retrieve schema:** " + ", ".join(h["tables"]))
-            elif s == "generate":
-                st.markdown("**Generate SQL**")
-                st.code(h["sql"], language="sql")
-            elif s == "execute":
-                st.markdown("**Execute:** " + ("ok" if h["ok"] else "error"))
-                if h["error"]:
-                    st.code(h["error"])
-            else:
-                st.markdown(f"**Correct, attempt {h['attempt']}**")
-                st.code(h["sql"], language="sql")
-
 
 # ---------- sidebar ----------
 provider, api_key = None, None
@@ -158,6 +207,7 @@ with st.sidebar:
         max_retries = st.slider("Self-correction attempts", 0, 3, config.MAX_RETRIES)
         st.caption(f"Databases with up to {config.SKIP_RETRIEVAL_BELOW} tables send every table. "
                    "Larger ones use schema retrieval.")
+        st.toggle("Show full prompts in the agent report", key="show_prompts")
 
     if config.PUBLIC_MODE:
         st.divider()
@@ -211,10 +261,13 @@ with tab_ask:
             try:
                 with st.status("Working on it...", expanded=True) as status:
                     for node, update in stream_agent(question.strip(), db_id, use_retrieval, max_retries,
-                                                     config.RETRIEVAL_K, provider, api_key):
+                                                     config.RETRIEVAL_K, provider, api_key,
+                                                     picker=n_tables > config.PICKER_MIN_TABLES):
                         state.update(update)
+                        
                         if node == "retrieve_schema":
-                            st.write(f"Schema: using {len(update['tables'])} of {n_tables} tables")
+                            h = update["history"][-1]
+                            st.write(f"Tables: {h.get('method', '')}, using {len(update['tables'])} of {n_tables}")
                         elif node == "generate":
                             st.write("Wrote a SQL query")
                         elif node == "execute":

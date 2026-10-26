@@ -59,9 +59,10 @@ def _temporary(e):
                                 "high demand", "timeout", "deadline", "429"))
 
 
-def ask_llm(prompt, provider=None, api_key=None):
+def ask_llm(prompt, provider=None, api_key=None, info=None):
     """Try each provider in LLM_CHAIN in order. With provider=..., use only that one.
-    With api_key=..., use the visitor's own key (and only that provider)."""
+    With api_key=..., use the visitor's own key (and only that provider).
+    If an `info` dict is passed, it is filled with which model answered and how long it took."""
     chain = [provider] if provider else config.LLM_CHAIN
     last_err = None
     for name in chain:
@@ -69,8 +70,12 @@ def ask_llm(prompt, provider=None, api_key=None):
             try:
                 if not api_key:
                     _throttle(name)
+                t0 = time.time()
                 out = _text(_client(name, api_key).invoke(prompt))
                 calls[name] = calls.get(name, 0) + 1
+                if info is not None:
+                    info.update(provider=name, model=config.model_of(name),
+                                seconds=round(time.time() - t0, 2), attempts=attempt + 1)
                 return out
             except Exception as e:
                 last_err = e

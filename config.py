@@ -51,3 +51,5 @@ UI_ROW_LIMIT = int(os.getenv("UI_ROW_LIMIT", "200"))
 PUBLIC_MODE = os.getenv("PUBLIC_MODE", "0") == "1"
 DEMO_QUESTIONS_PER_SESSION = int(os.getenv("DEMO_QUESTIONS_PER_SESSION", "5"))
 DEMO_DAILY_LIMIT = int(os.getenv("DEMO_DAILY_LIMIT", "200"))   # questions per day, all visitors combined
+
+PICKER_MIN_TABLES = int(os.getenv("PICKER_MIN_TABLES", "30"))   # databases bigger than this use the LLM table picker

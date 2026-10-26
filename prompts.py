@@ -33,3 +33,19 @@ Database error:
 {error}
 
 Corrected SQL:"""
+
+
+PICKER_PROMPT = """You choose which database tables are needed to answer a question.
+Below is every table in the database with its columns. Tables marked [empty] have no rows.
+
+Rules:
+- Return only table names, separated by commas. No explanation.
+- Choose at most {n} tables: the ones that hold the data the question asks for, plus any tables needed to join them.
+- Prefer tables whose columns directly match what the question asks for.
+
+Question: {question}
+
+Tables:
+{catalog}
+
+Table names:"""
