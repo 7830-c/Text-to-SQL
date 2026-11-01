@@ -1,13 +1,20 @@
 # 🗄️ QueryForge: Agentic Text-to-SQL System
 
-An enterprise-grade, self-correcting Text-to-SQL engine built with **LangGraph**, **SQLite**, **SentenceTransformers (FAISS)**, and **Multi-Provider LLMs** (Google Gemini & Groq/LLaMA). It translates natural language questions into accurate, executable SQLite queries, executes them securely, and features an automated multi-stage self-healing and data-grounding pipeline.
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://queryforge-agent.streamlit.app/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph-purple.svg)](https://github.com/langchain-ai/langgraph)
+
+An enterprise-grade, self-correcting Text-to-SQL engine built with **LangGraph**, **SQLite**, **SentenceTransformers (FAISS)**, and **Multi-Provider LLMs** (Google Gemini & Groq). It translates natural language questions into accurate, executable SQLite queries, executes them securely, and features an automated multi-stage self-healing and data-grounding pipeline.
+
+🔗 **Live Deployment:** [https://queryforge-agent.streamlit.app/](https://queryforge-agent.streamlit.app/)
 
 ---
 
 ## 📌 Table of Contents
 
 - [Overview](#-overview)
-- [User Interface & Showcase](#-user-interface--showcase)
+- [Live Demo & Showcase](#-live-demo--showcase)
 - [Key Capabilities & Features](#-key-capabilities--features)
 - [Architecture & Workflow](#%EF%B8%8F-architecture--workflow)
 - [Project Structure](#-project-structure)
@@ -39,10 +46,13 @@ This project solves these challenges by combining:
 - **Automated Schema Documentation & Data Dictionaries** (summarizing tables and domain terminology before querying).
 - **Active Data Grounding** (inspecting real database enum values and matching keywords from the question).
 - **Multi-Layered Self-Healing Execution** (AST-based text relaxation + database error feedback loops + soft error diagnostics).
+- **Interactive Database Exploration** (inspecting tables, previewing live rows, and column schemas directly in the web UI).
 
 ---
 
-## 📸 User Interface & Showcase
+## 📸 Live Demo & Showcase
+
+Try the app live without any setup: **[queryforge-agent.streamlit.app](https://queryforge-agent.streamlit.app/)**
 
 QueryForge features a modern, fully responsive, and theme-adaptive web interface supporting both **Light Mode** and **Dark Mode** (VS Code Dark+ palette), complete with fluid scaling across screen sizes.
 
@@ -51,9 +61,13 @@ QueryForge features a modern, fully responsive, and theme-adaptive web interface
 | :---: | :---: |
 | ![Light Mode](Frontend_Images/light_mode.png) | ![Dark Mode](Frontend_Images/dark_mode.png) |
 
-### 🚀 Query Execution, Agent Trace & Results
+### 🔍 Interactive Database Explorer (`Explore Database` Tab)
+![Explore Database](Frontend_Images/explore_database.png)
+*Browse all tables in the database, view row counts, inspect live table data previews, and analyze column types, primary keys, and foreign key relations.*
+
+### 🚀 Query Execution, Agent Trace & Tabular Results
 ![QueryForge Sample Output](Frontend_Images/sample_output.png)
-*Visual execution timeline (chips), interactive tabular results with pagination, one-click CSV download, generated SQL review, and deep agent step tracing.*
+*Visual execution timeline (chips), interactive tabular results, one-click CSV download, generated SQL review, and deep agent step tracing.*
 
 ---
 
@@ -81,18 +95,19 @@ QueryForge features a modern, fully responsive, and theme-adaptive web interface
 - **Tier 3 (Soft Error Diagnostics & Evidence Generation):** If relaxed queries still yield 0 rows, the system scans the database for actual values matching question tokens and feeds evidence back to the model for targeted refinement.
 
 ### 5. Multi-Provider Fallback & Rate Limiting (`llm.py`)
-- Primary and secondary LLM routing (e.g., `google` Gemini with fallback to `groq` LLaMA 3.3).
+- Primary and secondary LLM routing (e.g., `google` Gemini `gemini-3.5-flash-lite` with automatic failover to `groq` `qwen/qwen3.8-27b`).
 - Thread-safe Requests-Per-Minute (`RPM`) throttling.
 - Exponential backoff on transient network and server errors (`429`, `503`, timeouts).
 - Support for user-provided API keys in shared/public deployment settings.
 
 ### 6. Interactive Streamlit UI (`app.py`)
-- Fluidly responsive pipeline flowchart that dynamically scales across desktop, tablet, and mobile screens.
-- Choice between curated Spider sample databases and user-uploaded SQLite files (`.sqlite`, `.sqlite3`, `.db`).
-- Visual step-by-step execution timeline ("chips" indicating schema selection, grounding, generation, execution, and correction iterations).
-- Real-time tabular data display, row pagination, and one-click CSV download.
-- Full inspection tabs for the generated SQL query, executed schema, and raw model prompts.
-- Built-in database overview generation panel with progress tracking.
+- **Fluidly Responsive Flowchart:** Visual pipeline diagram dynamically scaling across mobile, tablet, and desktop screens.
+- **Horizontally Scrollable Question Pills:** Automatically serves 7 fresh randomized example questions from `dev.json` / `train` splits on page reload, styled as clean, horizontally scrollable pills.
+- **Database Explorer Tab:** Inspect table schemas, row counts, preview first 10 rows, and view foreign key references without running SQL.
+- **Dual Operating Modes:**
+  - **Local Development (`PUBLIC_MODE=0`):** Shows all 160+ Spider databases on disk with unlimited querying and local overview generation.
+  - **Public Production (`PUBLIC_MODE=1`):** Shows 10 curated sample databases with pre-cached dictionaries and session rate limit protection.
+- **Vibrant Alert Badges:** Clear amber/gold warning banners when session demo limits are reached, prompting users to insert their free API key.
 
 ---
 
@@ -155,15 +170,15 @@ The agent execution flow is orchestrated via **LangGraph**:
                                                                        │
                                                        If still 0 rows │
                                                                        ▼
-                                                             ┌──────────────────┐
-                                                             │ Layer 3: Soft    │
-                                                             │ Error Evidence   │
-                                                             └────────┬─────────┘
-                                                                      │
-                                                                      ▼
-                                                             ┌──────────────────┐
-                                                             │  Route to retry  │
-                                                             └──────────────────┘
+                                                              ┌──────────────────┐
+                                                              │ Layer 3: Soft    │
+                                                              │ Error Evidence   │
+                                                              └────────┬─────────┘
+                                                                       │
+                                                                       ▼
+                                                              ┌──────────────────┐
+                                                              │  Route to retry  │
+                                                              └──────────────────┘
 ```
 
 ---
@@ -172,7 +187,7 @@ The agent execution flow is orchestrated via **LangGraph**:
 
 ```
 .
-├── Frontend_Images/        # UI screenshots (light mode, dark mode, query execution)
+├── Frontend_Images/        # UI showcase (light_mode, dark_mode, explore_database, sample_output)
 ├── app.py                  # Streamlit web application interface
 ├── agent.py                # LangGraph StateGraph agent definition & streaming
 ├── retriever.py            # SentenceTransformer embeddings, FAISS index, FK expansion
@@ -195,7 +210,8 @@ The agent execution flow is orchestrated via **LangGraph**:
 ├── check_values.py         # CLI utility to find value occurrences across tables
 ├── debug_retrieval.py      # Quick CLI to test FAISS similarity rankings
 ├── test_agent.py           # Quick integration and sanity tests for agent workflows
-├── dict_cache/             # Cached database dictionary JSON files
+├── assets/                 # Custom brand favicon and logo assets (PNG & SVG)
+├── dict_cache/             # Pre-cached database data dictionary JSON files
 ├── spider_data/            # Curated sample databases and dev.json evaluation set
 ├── results/                # Benchmark JSONL logs, ablation charts, and analysis output
 └── uploads/                # Temporary directory for user-uploaded SQLite databases
@@ -234,7 +250,7 @@ pip install -r requirements.txt
 
 ## 🔑 Configuration (.env & Secrets)
 
-Create a `.env` file in the root directory for local development (refer to the settings below):
+Create a `.env` file in the root directory for local development:
 
 ```ini
 # --- API Keys ---
@@ -242,18 +258,18 @@ GOOGLE_API_KEY="your-google-ai-studio-api-key"
 GROQ_API_KEY="your-groq-api-key"
 
 # --- Model Selection & Provider Fallback ---
-# Comma-separated list in order of priority: e.g. "google,groq" or "google"
-LLM_CHAIN=google
+# Priority order: falls back from Google to Groq if rate-limited or unavailable
+LLM_CHAIN=google,groq
 LLM_TEMPERATURE=0
 LLM_RETRIES=3
 LLM_BACKOFF_S=10
 
 # Google Gemini Settings
-GOOGLE_MODEL=gemini-2.5-flash
+GOOGLE_MODEL=gemini-3.5-flash-lite
 GOOGLE_RPM=12
 
 # Groq Settings
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=qwen/qwen3.8-27b
 GROQ_RPM=10
 
 # --- Retrieval & Vector Search ---
@@ -274,7 +290,7 @@ MAX_UPLOAD_MB=35
 UPLOAD_TTL_MIN=60
 UI_ROW_LIMIT=200
 
-# Set to 1 when hosting publicly to enable visitor rate limits
+# Set to 1 when hosting publicly (Streamlit Cloud), or leave 0 for local dev
 PUBLIC_MODE=0
 DEMO_QUESTIONS_PER_SESSION=5
 DEMO_DAILY_LIMIT=200
@@ -284,32 +300,34 @@ DEMO_DAILY_LIMIT=200
 
 ## ☁️ Deployment on Streamlit Community Cloud
 
-QueryForge is pre-configured for one-click deployment on [Streamlit Community Cloud](https://share.streamlit.io):
+QueryForge is live at **[https://queryforge-agent.streamlit.app/](https://queryforge-agent.streamlit.app/)** and is pre-configured for one-click deployment:
 
 1. **Push your code to GitHub:** Ensure your `.env` is ignored (already in `.gitignore`) and `requirements.txt` is committed.
-2. **Create New App:**
-   - Log into Streamlit Cloud and link your repository.
+2. **Create New App on Streamlit Cloud:**
+   - Link your GitHub repository (`7830-c/QueryForge-Agentic-Text-to-SQL-System`).
    - Set **Main file path** to `app.py`.
 3. **Configure Secrets:** Under **Advanced settings $\rightarrow$ Secrets**, paste:
    ```toml
    GOOGLE_API_KEY = "your_google_ai_studio_api_key"
    GROQ_API_KEY = "your_groq_api_key"
 
-   LLM_CHAIN = "google"
-   GOOGLE_MODEL = "gemini-2.5-flash"
-   GROQ_MODEL = "llama-3.3-70b-versatile"
+   LLM_CHAIN = "google,groq"
+   GOOGLE_MODEL = "gemini-3.5-flash-lite"
+   GROQ_MODEL = "qwen/qwen3.8-27b"
 
    PUBLIC_MODE = "1"
    DEMO_QUESTIONS_PER_SESSION = 5
    DEMO_DAILY_LIMIT = 200
    ```
-4. **Deploy:** Streamlit automatically installs dependencies from `requirements.txt` and provisions the app.
+4. **Deploy:** Streamlit will install all dependencies from `requirements.txt` and launch the application.
+
+> **Keep-Warm Automation:** A scheduled GitHub Actions workflow (`.github/workflows/keep_warm.yml`) runs periodically to ensure the Streamlit Community Cloud instance remains active and does not enter sleep mode.
 
 ---
 
 ## 🗄️ Curated Sample Databases
 
-While the complete Spider benchmark spans ~900 MB (ignored by Git), the repository tracks **10 representative databases** (< 5 MB total) with pre-configured questions in `dev.json`:
+While the complete Spider benchmark spans ~900 MB, the repository tracks **10 representative databases** (< 5 MB total) with pre-cached data dictionaries in `dict_cache/`:
 
 | Database | Domain | Dev Questions | What it Tests |
 |---|---|:---:|---|
@@ -337,11 +355,11 @@ streamlit run app.py
 Open your browser at `http://localhost:8501`.
 
 #### Web UI Highlights:
-- **Choose Database:** Select any curated sample database, or upload your own `.sqlite` / `.db` file up to 35 MB.
-- **Example Questions:** Click any pre-loaded question for the selected database to populate the input immediately.
-- **Build Overview:** Click **"Build overview"** to generate domain descriptions for all tables.
+- **Choose Database:** Select any database from the dropdown, or upload your own `.sqlite` / `.db` file up to 35 MB.
+- **Example Questions:** 7 randomized questions render as sleek, horizontally scrollable pills. Click any to ask immediately.
+- **Explore Database:** Switch to the **Explore Database** tab to browse tables, row counts, preview records, and check column types and foreign keys.
 - **Ask Questions:** Type questions in plain natural language (e.g., *"Which stadium has hosted the highest number of concerts?"*).
-- **Inspect Trajectory:** Expand the agent trace to review table retrieval scores, generated SQL, error corrections, and model latency.
+- **Inspect Trajectory:** Review table retrieval scores, generated SQL, error corrections, and model latency in real time.
 - **Export Results:** View query output in an interactive table and download as CSV.
 
 ---
@@ -404,7 +422,7 @@ The project includes several specialized CLI tools for database administration a
 
 - **Inspect SQLite Schema:**
   ```bash
-  python inspect_db.py spider_data/database/concert_singer/concert_singer.sqlite [optional_keyword]
+  python inspect_db.py spider_data/database/concert_singer/concert_singer.sqlite
   ```
 - **Evaluate Retrieval Recall:**
   ```bash
@@ -434,7 +452,7 @@ The project includes several specialized CLI tools for database administration a
 | **Silent 0-Row Output** | Relaxed query still returns 0 rows | **Soft Error Evidence:** Scans database for close string matches and supplies actual data samples in the correction prompt. |
 | **Missing Foreign Keys** | Incomplete join paths in raw schema | **FK Inference:** Detects naming patterns (`<table_stem>_id`) to add join paths to the schema context. |
 | **API Rate Limits / 429** | LLM provider quotas hit | Thread-safe RPM throttling + automatic exponential backoff retry loop. |
-| **Provider Outage** | 5xx errors from primary provider | Automatic failover to secondary provider defined in `LLM_CHAIN`. |
+| **Provider Outage** | 5xx errors from primary provider | Automatic failover to secondary provider defined in `LLM_CHAIN` (Google $\rightarrow$ Groq). |
 
 ---
 
