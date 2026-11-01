@@ -1365,7 +1365,7 @@ with _dc2:
 st.markdown("<div style='margin-bottom:0.5rem'></div>", unsafe_allow_html=True)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_ask, tab_explore, tab_bench = st.tabs(["Ask", "Explore Database", "Benchmark"])
+tab_ask, tab_explore = st.tabs(["Ask", "Explore Database"])
 
 with tab_ask:
     if db_id:
@@ -1515,14 +1515,3 @@ with tab_ask:
 
 with tab_explore:
     explore_database_panel(db_id, provider, api_key)
-
-with tab_bench:
-    img  = Path(config.RESULTS_DIR) / "ablation.png"
-    meta = Path(config.RESULTS_DIR) / "meta.json"
-    if img.exists():
-        st.image(str(img))
-        if meta.exists():
-            m = json.loads(meta.read_text())
-            st.caption(f"Model: {m['model']}.  {m['n']} random Spider dev questions.  Metric: execution accuracy.")
-    else:
-        st.info("Run benchmark.py and analyze.py to generate the ablation chart.")
