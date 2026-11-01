@@ -5,7 +5,20 @@
 __pycache__/
 
 # Project data and resources
-spider_data/
+spider_data/*
+!spider_data/dev.json
+!spider_data/database/
+spider_data/database/*
+!spider_data/database/concert_singer/
+!spider_data/database/world_1/
+!spider_data/database/car_1/
+!spider_data/database/student_transcripts_tracking/
+!spider_data/database/flight_2/
+!spider_data/database/tvshow/
+!spider_data/database/network_1/
+!spider_data/database/pets_1/
+!spider_data/database/orchestra/
+!spider_data/database/employee_hire_evaluation/
 Important_Links_resources
 
 test.py

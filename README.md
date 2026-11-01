@@ -1,4 +1,4 @@
-# 🗄️ Agentic Text-to-SQL System
+# 🗄️ QueryForge: Agentic Text-to-SQL System
 
 An enterprise-grade, self-correcting Text-to-SQL engine built with **LangGraph**, **SQLite**, **SentenceTransformers (FAISS)**, and **Multi-Provider LLMs** (Google Gemini & Groq/LLaMA). It translates natural language questions into accurate, executable SQLite queries, executes them securely, and features an automated multi-stage self-healing and data-grounding pipeline.
 
@@ -6,20 +6,23 @@ An enterprise-grade, self-correcting Text-to-SQL engine built with **LangGraph**
 
 ## 📌 Table of Contents
 
-- [Overview](#overview)
-- [Key Capabilities & Features](#key-capabilities--features)
-- [Architecture & Workflow](#architecture--workflow)
-- [Project Structure](#project-structure)
-- [Installation & Setup](#installation--setup)
-- [Configuration (.env)](#configuration-env)
-- [How to Use](#how-to-use)
+- [Overview](#-overview)
+- [User Interface & Showcase](#-user-interface--showcase)
+- [Key Capabilities & Features](#-key-capabilities--features)
+- [Architecture & Workflow](#%EF%B8%8F-architecture--workflow)
+- [Project Structure](#-project-structure)
+- [Installation & Setup](#%EF%B8%8F-installation--setup)
+- [Configuration (.env & Secrets)](#-configuration-env--secrets)
+- [Deployment on Streamlit Community Cloud](#-deployment-on-streamlit-community-cloud)
+- [Curated Sample Databases](#-curated-sample-databases)
+- [How to Use](#-how-to-use)
   - [1. Running the Streamlit Web Application](#1-running-the-streamlit-web-application)
   - [2. CLI & Programmatic Agent Execution](#2-cli--programmatic-agent-execution)
   - [3. Running Benchmarks & Spider Evaluation](#3-running-benchmarks--spider-evaluation)
   - [4. Diagnostic & Inspection Utilities](#4-diagnostic--inspection-utilities)
-- [Error Handling & Self-Correction Mechanisms](#error-handling--self-correction-mechanisms)
-- [Security & Safety Safeguards](#security--safety-safeguards)
-- [License & Acknowledgments](#license--acknowledgments)
+- [Error Handling & Self-Correction Mechanisms](#%EF%B8%8F-error-handling--self-correction-mechanisms)
+- [Security & Safety Safeguards](#-security--safety-safeguards)
+- [License & Acknowledgments](#-license--acknowledgments)
 
 ---
 
@@ -36,6 +39,21 @@ This project solves these challenges by combining:
 - **Automated Schema Documentation & Data Dictionaries** (summarizing tables and domain terminology before querying).
 - **Active Data Grounding** (inspecting real database enum values and matching keywords from the question).
 - **Multi-Layered Self-Healing Execution** (AST-based text relaxation + database error feedback loops + soft error diagnostics).
+
+---
+
+## 📸 User Interface & Showcase
+
+QueryForge features a modern, fully responsive, and theme-adaptive web interface supporting both **Light Mode** and **Dark Mode** (VS Code Dark+ palette), complete with fluid scaling across screen sizes.
+
+### ☀️ Light Mode vs. 🌙 Dark Mode
+| Light Mode | Dark Mode |
+| :---: | :---: |
+| ![Light Mode](Frontend_Images/light_mode.png) | ![Dark Mode](Frontend_Images/dark_mode.png) |
+
+### 🚀 Query Execution, Agent Trace & Results
+![QueryForge Sample Output](Frontend_Images/sample_output.png)
+*Visual execution timeline (chips), interactive tabular results with pagination, one-click CSV download, generated SQL review, and deep agent step tracing.*
 
 ---
 
@@ -69,7 +87,8 @@ This project solves these challenges by combining:
 - Support for user-provided API keys in shared/public deployment settings.
 
 ### 6. Interactive Streamlit UI (`app.py`)
-- Support for built-in Spider sample databases and user-uploaded SQLite files (`.sqlite`, `.sqlite3`, `.db`).
+- Fluidly responsive pipeline flowchart that dynamically scales across desktop, tablet, and mobile screens.
+- Choice between curated Spider sample databases and user-uploaded SQLite files (`.sqlite`, `.sqlite3`, `.db`).
 - Visual step-by-step execution timeline ("chips" indicating schema selection, grounding, generation, execution, and correction iterations).
 - Real-time tabular data display, row pagination, and one-click CSV download.
 - Full inspection tabs for the generated SQL query, executed schema, and raw model prompts.
@@ -153,6 +172,7 @@ The agent execution flow is orchestrated via **LangGraph**:
 
 ```
 .
+├── Frontend_Images/        # UI screenshots (light mode, dark mode, query execution)
 ├── app.py                  # Streamlit web application interface
 ├── agent.py                # LangGraph StateGraph agent definition & streaming
 ├── retriever.py            # SentenceTransformer embeddings, FAISS index, FK expansion
@@ -165,6 +185,7 @@ The agent execution flow is orchestrated via **LangGraph**:
 ├── llm.py                  # Multi-provider LLM client (Gemini, Groq) with throttling
 ├── config.py               # Central configuration loaded from .env / Streamlit secrets
 ├── uploads.py              # File upload validation, storage, and TTL auto-cleanup
+├── requirements.txt        # Project dependencies for local setup & Streamlit Cloud
 ├── benchmark.py            # Spider evaluation runner (baseline vs full agent)
 ├── analyze.py              # Evaluation analysis, accuracy metrics & ablation chart
 ├── compare.py              # Set- & order-aware SQL result evaluation helper
@@ -175,7 +196,7 @@ The agent execution flow is orchestrated via **LangGraph**:
 ├── debug_retrieval.py      # Quick CLI to test FAISS similarity rankings
 ├── test_agent.py           # Quick integration and sanity tests for agent workflows
 ├── dict_cache/             # Cached database dictionary JSON files
-├── spider_data/            # Spider benchmark databases and dev.json dataset
+├── spider_data/            # Curated sample databases and dev.json evaluation set
 ├── results/                # Benchmark JSONL logs, ablation charts, and analysis output
 └── uploads/                # Temporary directory for user-uploaded SQLite databases
 ```
@@ -191,7 +212,7 @@ The agent execution flow is orchestrated via **LangGraph**:
 
 ### Step 1: Clone the Repository & Create Virtual Environment
 ```bash
-git clone <repository-url>
+git clone https://github.com/<your-username>/Text-to-SQL.git
 cd Text-to-SQL
 
 # Create virtual environment
@@ -208,16 +229,12 @@ source .venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
-*(If `requirements.txt` is not present, install core dependencies directly)*:
-```bash
-pip install streamlit langgraph langchain-google-genai langchain-groq sentence-transformers faiss-cpu sqlglot python-dotenv pandas matplotlib
-```
 
 ---
 
-## 🔑 Configuration (.env)
+## 🔑 Configuration (.env & Secrets)
 
-Create a `.env` file in the root directory (refer to the settings below):
+Create a `.env` file in the root directory for local development (refer to the settings below):
 
 ```ini
 # --- API Keys ---
@@ -265,6 +282,50 @@ DEMO_DAILY_LIMIT=200
 
 ---
 
+## ☁️ Deployment on Streamlit Community Cloud
+
+QueryForge is pre-configured for one-click deployment on [Streamlit Community Cloud](https://share.streamlit.io):
+
+1. **Push your code to GitHub:** Ensure your `.env` is ignored (already in `.gitignore`) and `requirements.txt` is committed.
+2. **Create New App:**
+   - Log into Streamlit Cloud and link your repository.
+   - Set **Main file path** to `app.py`.
+3. **Configure Secrets:** Under **Advanced settings $\rightarrow$ Secrets**, paste:
+   ```toml
+   GOOGLE_API_KEY = "your_google_ai_studio_api_key"
+   GROQ_API_KEY = "your_groq_api_key"
+
+   LLM_CHAIN = "google"
+   GOOGLE_MODEL = "gemini-2.5-flash"
+   GROQ_MODEL = "llama-3.3-70b-versatile"
+
+   PUBLIC_MODE = "1"
+   DEMO_QUESTIONS_PER_SESSION = 5
+   DEMO_DAILY_LIMIT = 200
+   ```
+4. **Deploy:** Streamlit automatically installs dependencies from `requirements.txt` and provisions the app.
+
+---
+
+## 🗄️ Curated Sample Databases
+
+While the complete Spider benchmark spans ~900 MB (ignored by Git), the repository tracks **10 representative databases** (< 5 MB total) with pre-configured questions in `dev.json`:
+
+| Database | Domain | Dev Questions | What it Tests |
+|---|---|:---:|---|
+| **`concert_singer`** | Entertainment | 45 | Classic benchmark schema (singers, concerts, stadiums). |
+| **`world_1`** | Geography | 120 | Global demographics, multi-column filters, and population stats. |
+| **`car_1`** | Automotive | 92 | Deep relational JOINs across makers, models, and specifications. |
+| **`flight_2`** | Aviation | 80 | Airlines, airports, routes, and date/time aggregations. |
+| **`student_transcripts_tracking`** | Academia | 78 | Complex multi-hop foreign key chains and academic records. |
+| **`tvshow`** | Media | 62 | Series, channels, episode ratings, and broadcast schedules. |
+| **`network_1`** | Social Network | 56 | Self-referencing relationship graph (friends & likes). |
+| **`pets_1`** | Veterinary | 42 | Compact schema ideal for quick joins and sanity checks. |
+| **`orchestra`** | Performing Arts | 40 | Performance dates, conductors, and categorical attributes. |
+| **`employee_hire_evaluation`** | Corporate HR | 38 | Candidate evaluation, hiring status, and interviewer logic. |
+
+---
+
 ## 💻 How to Use
 
 ### 1. Running the Streamlit Web Application
@@ -276,11 +337,12 @@ streamlit run app.py
 Open your browser at `http://localhost:8501`.
 
 #### Web UI Highlights:
-- **Choose Database:** Select any pre-loaded Spider database from the dropdown, or upload any `.sqlite` database up to 35 MB.
+- **Choose Database:** Select any curated sample database, or upload your own `.sqlite` / `.db` file up to 35 MB.
+- **Example Questions:** Click any pre-loaded question for the selected database to populate the input immediately.
 - **Build Overview:** Click **"Build overview"** to generate domain descriptions for all tables.
-- **Ask Questions:** Type your question in natural language (e.g., *"Which singer released the most albums in 2020?"*).
-- **Inspect Trajectory:** Expand **"How the agent got this answer"** to see table retrieval scores, generated SQL, error feedback loops, and LLM latency.
-- **Export Results:** View query results in a clean table and download them as CSV.
+- **Ask Questions:** Type questions in plain natural language (e.g., *"Which stadium has hosted the highest number of concerts?"*).
+- **Inspect Trajectory:** Expand the agent trace to review table retrieval scores, generated SQL, error corrections, and model latency.
+- **Export Results:** View query output in an interactive table and download as CSV.
 
 ---
 
@@ -291,7 +353,6 @@ You can run the agent directly in Python scripts:
 ```python
 from agent import run_agent
 
-# Run agent on a database with retrieval and self-correction
 state = run_agent(
     question="What is the average age of singers from France?",
     db_id="concert_singer",
@@ -305,7 +366,7 @@ print("Query Result  :", state["result"])
 print("Total Retries :", state["retry_count"])
 ```
 
-Run quick built-in test suites:
+Run quick integration test suites:
 ```bash
 python test_agent.py
 ```
@@ -314,7 +375,7 @@ python test_agent.py
 
 ### 3. Running Benchmarks & Spider Evaluation
 
-The project includes an end-to-end evaluation suite on the **Spider** cross-domain Text-to-SQL benchmark.
+The project includes an end-to-end evaluation suite on the **Spider** cross-domain benchmark.
 
 #### Run Baseline vs. Full Agent:
 ```bash

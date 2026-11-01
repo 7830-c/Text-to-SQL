@@ -1,0 +1,12 @@
+streamlit>=1.35.0
+langgraph>=0.0.50
+langchain-core
+langchain-google-genai>=1.0.0
+langchain-groq>=0.1.0
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.4
+sqlglot>=20.0.0
+python-dotenv>=1.0.0
+pandas>=2.0.0
+matplotlib>=3.7.0
+

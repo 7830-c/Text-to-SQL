@@ -7,7 +7,8 @@ load_dotenv()
 try:
     import streamlit as st
     for _k, _v in st.secrets.items():
-        if isinstance(_v, str):
+        if isinstance(_v, (str, int, float, bool)):
+            _v = str(_v)
             os.environ.setdefault(_k, _v)
 except Exception:
     pass

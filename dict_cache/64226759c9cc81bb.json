@@ -1,0 +1,22 @@
+{
+ "overview": "This database tracks the relationship between corporate entities and their physical office spaces. It stores detailed information about buildings, including their location and structural attributes. Additionally, it maintains corporate profiles with financial and industry data, linking companies to specific buildings and move-in years.",
+ "areas": [
+  "Building infrastructure: buildings",
+  "Corporate profiles: Companies",
+  "Office occupancy: Office_locations"
+ ],
+ "notes": [
+  "Office_locations.building_id references buildings.id.",
+  "Office_locations.company_id references Companies.id.",
+  "Companies.Market_Value_billion is stored as text rather than a numeric type."
+ ],
+ "tables": {
+  "buildings": "Stores physical building details including name, city, height, stories, and current status.",
+  "Companies": "Stores corporate information such as headquarters, industry, financial metrics, and market value.",
+  "Office_locations": "Records which companies occupy which buildings and the year they moved in."
+ },
+ "n_tables": 3,
+ "failed_batches": 0,
+ "model": "qwen/qwen3.8-27b",
+ "created": "2026-11-01"
+}

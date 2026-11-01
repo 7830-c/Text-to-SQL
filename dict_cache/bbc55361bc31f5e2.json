@@ -1,0 +1,22 @@
+{
+ "overview": "This database is designed to manage student records and health information within an educational institution. It tracks individual student demographics alongside specific medical allergies and their classifications. This allows administrators to monitor student health needs and safety concerns.",
+ "areas": [
+  "Student demographics and academics: Student",
+  "Allergy classifications: Allergy_Type",
+  "Student health records: Has_Allergy"
+ ],
+ "notes": [
+  "Has_Allergy.StuID and Student.StuID likely link students to their allergies.",
+  "Has_Allergy.Allergy and Allergy_Type.Allergy likely link allergy records to their types.",
+  "Student combines LName and Fname to represent a person's full name."
+ ],
+ "tables": {
+  "Allergy_Type": "This table stores the classification type for various allergies.",
+  "Has_Allergy": "This table records which students suffer from specific allergies using student IDs.",
+  "Student": "This table stores personal details, demographics, and academic information for each student."
+ },
+ "n_tables": 3,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}
