@@ -1,0 +1,21 @@
+{
+ "overview": "This database is designed to manage information about high school students and their social connections. It tracks student demographics, who is friends with whom, and romantic interests or crushes between students.",
+ "areas": [
+  "Students: Highschooler",
+  "Social connections: Friend",
+  "Relationships: Likes"
+ ],
+ "notes": [
+  "Highschooler.ID is referenced by student_id and friend_id in the Friend table.",
+  "Highschooler.ID is referenced by student_id and liked_id in the Likes table."
+ ],
+ "tables": {
+  "Highschooler": "Stores information about high school students including their ID, name, and grade.",
+  "Friend": "Stores friendship connections between pairs of students using their IDs.",
+  "Likes": "Stores crush or like relationships where one student likes another."
+ },
+ "n_tables": 3,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}

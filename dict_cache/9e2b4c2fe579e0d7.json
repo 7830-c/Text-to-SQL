@@ -1,0 +1,21 @@
+{
+ "overview": "This database is designed to manage global geographic and demographic information. It contains comprehensive data on countries, individual cities, and the languages spoken across different regions. Users can query this database to analyze world populations, government types, and linguistic distributions.",
+ "areas": [
+  "Cities and demographics: city",
+  "Countries and governance: country",
+  "Languages and linguistics: countrylanguage"
+ ],
+ "notes": [
+  "The CountryCode column in the city and countrylanguage tables relates to the Code column in the country table.",
+  "The Capital column in the country table likely references the ID column in the city table."
+ ],
+ "tables": {
+  "city": "Stores information about various cities including their population, district, and associated country code.",
+  "country": "Stores detailed information about countries such as population, surface area, government form, and capital.",
+  "countrylanguage": "Stores languages spoken in each country, indicating whether they are official and their usage percentage."
+ },
+ "n_tables": 3,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}

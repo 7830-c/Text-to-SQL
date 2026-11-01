@@ -1,0 +1,24 @@
+{
+ "overview": "This database manages information related to classical music management, specifically tracking orchestras, their conductors, and scheduled performances. It also records detailed data about individual shows linked to those performances, including metrics like attendance and ratings.",
+ "areas": [
+  "Conductors: conductor",
+  "Orchestras: orchestra",
+  "Performances: performance",
+  "Shows: show"
+ ],
+ "notes": [
+  "The Conductor_ID column in the orchestra table links to the Conductor_ID in the conductor table.",
+  "The Orchestra_ID column in the performance table links to the Orchestra_ID in the orchestra table.",
+  "The Performance_ID column in the show table links to the Performance_ID in the performance table."
+ ],
+ "tables": {
+  "conductor": "Stores personal and professional details of music conductors.",
+  "orchestra": "Stores information about orchestras, including their founding year and associated record company.",
+  "performance": "Stores details about specific orchestra performances such as dates, ratings, and ranks.",
+  "show": "Stores information about individual shows linked to performances, including attendance and results."
+ },
+ "n_tables": 4,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}

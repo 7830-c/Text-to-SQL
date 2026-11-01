@@ -1,0 +1,24 @@
+{
+ "overview": "This database manages information related to musical concerts, the stadiums where they are held, and the singers who perform in them. It tracks details about venue locations and capacities, artist demographics, event themes, and the relationships linking performers to their specific concerts.",
+ "areas": [
+  "Stadium details and capacities: stadium",
+  "Singer information and song details: singer",
+  "Concert events and themes: concert",
+  "Singer and concert relationships: singer_in_concert"
+ ],
+ "notes": [
+  "Stadium_ID in the concert table links to Stadium_ID in the stadium table.",
+  "Singer_ID in the singer_in_concert table links to Singer_ID in the singer table.",
+  "concert_ID in the singer_in_concert table links to concert_ID in the concert table."
+ ],
+ "tables": {
+  "stadium": "Stores details about various stadiums including their location, capacity, and attendance records.",
+  "singer": "Stores information about singers including their name, country, age, and song details.",
+  "concert": "Stores information about concerts including their name, theme, year, and associated stadium.",
+  "singer_in_concert": "Stores the many-to-many relationship linking singers to the concerts they perform in."
+ },
+ "n_tables": 4,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}

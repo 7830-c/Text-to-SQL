@@ -1,6 +1,8 @@
 import datetime
 import json
 import os
+import random
+import sqlite3
 import threading
 import time
 from pathlib import Path
@@ -914,12 +916,34 @@ def chips(history):
 
 
 @st.cache_data
-def example_questions(db_id):
+def all_example_questions(db_id):
     p = Path(config.SPIDER_DIR) / "dev.json"
     if not p.exists():
         return []
-    dev = json.load(open(p, encoding="utf-8"))
-    return [x["question"] for x in dev if x["db_id"] == db_id][:3]
+    try:
+        dev = json.load(open(p, encoding="utf-8"))
+        seen = set()
+        out = []
+        for x in dev:
+            if x.get("db_id") == db_id:
+                q = x.get("question", "").strip()
+                if q and q not in seen:
+                    seen.add(q)
+                    out.append(q)
+        return out
+    except Exception:
+        return []
+
+
+def get_sample_questions(db_id, n=7):
+    all_q = all_example_questions(db_id)
+    if not all_q:
+        return []
+    if len(all_q) <= n:
+        return all_q
+    seed = st.session_state.get(f"_q_seed_{db_id}", 42)
+    rng = random.Random(seed)
+    return rng.sample(all_q, n)
 
 
 def _provider_label_short(p: str) -> str:
@@ -1064,6 +1088,107 @@ def overview_panel(db_id, provider, api_key):
                 dictionary.forget(db_id, delete_disk=True)
                 st.session_state.pop(f"tried_{db_id}", None)
                 st.rerun()
+
+
+def explore_database_panel(db_id, provider, api_key):
+    if not db_id:
+        st.info("Please select or upload a database above to explore its schema and tables.")
+        return
+
+    try:
+        schema = get_schema(db_id, n_samples=3)
+    except Exception as e:
+        st.error(f"Could not load database schema: {e}")
+        return
+
+    tables = sorted(schema.keys())
+    if not tables:
+        st.warning("This database has no tables.")
+        return
+
+    # 1. Database Overview & Descriptions (if cached or generator button)
+    d = dictionary.load_cached(db_id)
+    if d and d.get("overview"):
+        st.markdown(f"**About this database:** {d['overview']}")
+        if d.get("areas"):
+            st.caption("Key domains: " + " &middot; ".join(d["areas"]))
+    elif not d:
+        n = len(tables)
+        needed = math.ceil(n / config.DICT_BATCH_TABLES) + 1
+        persist = not (config.PUBLIC_MODE and db_id.startswith("upload_"))
+        if config.PUBLIC_MODE and not api_key:
+            st.info(f"💡 Optional: Add your API key in Settings to generate AI table descriptions for this database ({needed} model calls).")
+        else:
+            if st.button(f"✨ Generate AI Table Descriptions ({needed} model calls)", key=f"exp_build_{db_id}"):
+                bar = st.progress(0.0, text="Generating table descriptions...")
+                try:
+                    d = dictionary.build(
+                        db_id, provider, api_key, persist=persist,
+                        progress=lambda done, total, msg: bar.progress(min(done / total, 1.0), text=msg))
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Could not build overview: {str(e)[:300]}")
+                bar.empty()
+
+    st.markdown('<hr class="section-sep">', unsafe_allow_html=True)
+
+    # 2. Table Selector + Stats
+    col_sel, col_stat = st.columns([2, 1])
+    with col_sel:
+        selected_table = st.selectbox("Choose a table to inspect:", tables, key=f"_exp_t_{db_id}")
+
+    path = get_db_path(db_id)
+    row_count = 0
+    preview_rows = []
+    col_names = []
+    try:
+        conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+        cur = conn.cursor()
+        row_count = cur.execute(f'SELECT COUNT(*) FROM "{selected_table}"').fetchone()[0]
+        cur.execute(f'SELECT * FROM "{selected_table}" LIMIT 10')
+        col_names = [desc[0] for desc in cur.description] if cur.description else []
+        preview_rows = cur.fetchall()
+        conn.close()
+    except Exception as e:
+        st.warning(f"Could not read table '{selected_table}': {e}")
+
+    with col_stat:
+        st.markdown(
+            f"<div style='padding-top:1.8rem; font-size:0.85rem; font-weight:600; color:var(--text2);'>"
+            f"📊 <b>{len(tables)}</b> total tables &nbsp;|&nbsp; <b>{row_count}</b> rows in <code>{selected_table}</code></div>",
+            unsafe_allow_html=True
+        )
+
+    # 3. Table description from data dictionary
+    if d and d.get("tables", {}).get(selected_table):
+        st.info(f"📌 **Table Purpose:** {d['tables'][selected_table]}")
+
+    # 4. Data Preview & Column Schema Tabs
+    t_prev, t_schema = st.tabs([f"Data Preview ({min(10, row_count)} of {row_count} rows)", "Columns & Schema"])
+
+    with t_prev:
+        if preview_rows:
+            df_prev = pd.DataFrame(preview_rows, columns=unique(col_names))
+            st.dataframe(df_prev, use_container_width=True)
+            if row_count > 10:
+                st.caption(f"Showing first 10 rows of {row_count} total rows.")
+        else:
+            st.info(f"Table '{selected_table}' is currently empty (0 rows).")
+
+    with t_schema:
+        t_info = schema.get(selected_table, {})
+        cols_meta = []
+        fks_map = {fk["from"]: f"{fk['ref_table']}.{fk['to']}" for fk in t_info.get("fks", [])}
+        for c in t_info.get("columns", []):
+            cname = c["name"]
+            cols_meta.append({
+                "Column": cname,
+                "Data Type": c["type"] or "TEXT",
+                "Primary Key": "🔑 Yes" if c.get("pk") else "No",
+                "Foreign Key": f"🔗 {fks_map[cname]}" if cname in fks_map else "-",
+            })
+        if cols_meta:
+            st.dataframe(pd.DataFrame(cols_meta), use_container_width=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1240,7 +1365,7 @@ with _dc2:
 st.markdown("<div style='margin-bottom:0.5rem'></div>", unsafe_allow_html=True)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_ask, tab_bench = st.tabs(["Ask", "Benchmark"])
+tab_ask, tab_explore, tab_bench = st.tabs(["Ask", "Explore Database", "Benchmark"])
 
 with tab_ask:
     if db_id:
@@ -1259,17 +1384,31 @@ with tab_ask:
         with _run_col:
             go = st.form_submit_button("Run", type="primary", disabled=not db_id)
 
-    # Example questions (horizontal row below the form)
+    # Example questions (7 random questions in a 2-column grid with shuffle)
     if db_id and source == "Sample database":
-        exs = example_questions(db_id)
+        exs = get_sample_questions(db_id, n=7)
         if exs:
-            st.markdown('<span class="ex-label">Example questions</span>', unsafe_allow_html=True)
-            _ex_cols = st.columns(len(exs))
-            for i, (eq, col) in enumerate(zip(exs, _ex_cols)):
-                with col:
-                    st.button(eq, key=f"ex{i}",
-                              on_click=lambda q=eq: st.session_state.update(q=q),
-                              use_container_width=True)
+            _hcol, _bcol = st.columns([5, 1])
+            with _hcol:
+                st.markdown('<span class="ex-label">Example questions (click to ask)</span>', unsafe_allow_html=True)
+            with _bcol:
+                if st.button("🎲 Shuffle", key=f"shuf_{db_id}", help="Pick 7 different random questions from dev.json", use_container_width=True):
+                    st.session_state[f"_q_seed_{db_id}"] = st.session_state.get(f"_q_seed_{db_id}", 0) + 1
+                    st.rerun()
+
+            col1, col2 = st.columns(2)
+            seed = st.session_state.get(f"_q_seed_{db_id}", 0)
+            for i, eq in enumerate(exs):
+                target_col = col1 if i % 2 == 0 else col2
+                with target_col:
+                    st.button(
+                        eq,
+                        key=f"ex_{db_id}_{i}_{seed}",
+                        on_click=lambda q=eq: st.session_state.update(q=q),
+                        use_container_width=True,
+                    )
+    elif db_id and source != "Sample database":
+        st.caption("💡 Custom database active. Switch to the **Explore Database** tab above to view your tables, columns, and data.")
 
     # ── Run logic ─────────────────────────────────────────────────────────────
     if go:
@@ -1373,6 +1512,9 @@ with tab_ask:
     r = st.session_state.get("result")
     if r and r["db_id"] == db_id:
         show_result(r)
+
+with tab_explore:
+    explore_database_panel(db_id, provider, api_key)
 
 with tab_bench:
     img  = Path(config.RESULTS_DIR) / "ablation.png"

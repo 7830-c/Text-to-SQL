@@ -1,0 +1,22 @@
+{
+ "overview": "This database is designed to manage information about students, their academic details, and their personal pets. It tracks student demographics and relationships, connects students with the animals they own, and records specific characteristics of those pets. You can use it to explore data related to student profiles, pet ownership, and pet attributes.",
+ "areas": [
+  "Student information: Student",
+  "Pet details: Pets",
+  "Student-pet relationships: Has_Pet"
+ ],
+ "notes": [
+  "StuID in Has_Pet and Student links a student to their pet records.",
+  "PetID in Has_Pet and Pets links the relationship table to the specific pet.",
+  "Fname and LName columns together hold a person's full name."
+ ],
+ "tables": {
+  "Student": "Stores information about students including their names, age, sex, major, advisor, and city code.",
+  "Has_Pet": "Stores the relationship mapping students to the pets they own.",
+  "Pets": "Stores details about pets including their type, age, and weight."
+ },
+ "n_tables": 3,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}

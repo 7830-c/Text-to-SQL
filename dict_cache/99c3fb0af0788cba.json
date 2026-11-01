@@ -1,0 +1,21 @@
+{
+ "overview": "This database is designed to manage global flight and travel information. It tracks airlines, their operating airports, and the specific flights connecting those airports. Users can query this database to find details about airline carriers, airport locations, and flight routes.",
+ "areas": [
+  "Airlines: airlines",
+  "Airports: airports",
+  "Flights: flights"
+ ],
+ "notes": [
+  "The Airline column in the flights table is an integer that likely references the uid column in the airlines table.",
+  "The SourceAirport and DestAirport columns in the flights table likely reference the AirportCode column in the airports table."
+ ],
+ "tables": {
+  "airlines": "Stores information about airlines including their name, abbreviation, and country.",
+  "airports": "Stores information about airports including their city, name, code, and country.",
+  "flights": "Stores flight details including airline, flight number, source airport, and destination airport."
+ },
+ "n_tables": 3,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}

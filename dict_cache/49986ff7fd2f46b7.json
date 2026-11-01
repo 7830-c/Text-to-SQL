@@ -1,0 +1,35 @@
+{
+ "overview": "This database manages a university or academic institution's core operational data. It tracks students, their contact and address details, and their enrollments in various degree programs, departments, and courses. Additionally, it records academic progress through semesters, course sections, and transcripts.",
+ "areas": [
+  "Students and addresses: Students, Addresses",
+  "Academics and courses: Courses, Sections, Semesters",
+  "Organization and programs: Departments, Degree_Programs",
+  "Enrollments: Student_Enrolment, Student_Enrolment_Courses",
+  "Academic records: Transcripts, Transcript_Contents"
+ ],
+ "notes": [
+  "Students.current_address_id and Students.permanent_address_id point to Addresses.address_id.",
+  "Degree_Programs.department_id points to Departments.department_id.",
+  "Sections.course_id points to Courses.course_id.",
+  "Student_Enrolment links students, degree programs, and semesters together using their respective IDs.",
+  "student_course_id likely references a student course entity.",
+  "transcript_id likely references a transcript entity."
+ ],
+ "tables": {
+  "Addresses": "Stores address details including street lines, city, postal code, state, and country.",
+  "Courses": "Stores course names, descriptions, and additional details.",
+  "Departments": "Stores department names, descriptions, and other details.",
+  "Degree_Programs": "Stores degree programs linked to departments with summary names and descriptions.",
+  "Sections": "Stores course sections with names, descriptions, and linked course identifiers.",
+  "Semesters": "Stores semester names, descriptions, and other details.",
+  "Students": "Stores student personal details, contact info, registration dates, and address references.",
+  "Student_Enrolment": "Stores student enrollments connecting students to degree programs and semesters.",
+  "Student_Enrolment_Courses": "Stores courses taken as part of a student enrollment.",
+  "Transcripts": "Stores academic transcript dates and other details.",
+  "Transcript_Contents": "Stores the association between student courses and transcripts."
+ },
+ "n_tables": 11,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}

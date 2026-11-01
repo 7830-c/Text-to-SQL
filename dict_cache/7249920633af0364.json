@@ -1,0 +1,23 @@
+{
+ "overview": "This database manages a retail business's workforce and store locations. It tracks employee personal details, their managerial or staff assignments to various shops, and their performance evaluations. Together, these tables provide a complete view of retail operations and human resources.",
+ "areas": [
+  "Employees: employee",
+  "Shops: shop",
+  "Hiring and assignments: hiring",
+  "Performance and evaluations: evaluation"
+ ],
+ "notes": [
+  "The hiring table links shops and employees using Shop_ID and Employee_ID.",
+  "The evaluation table references employees using Employee_ID."
+ ],
+ "tables": {
+  "employee": "Stores details about individual employees, including their name, age, and city.",
+  "shop": "Stores details about retail shops, including their location, district, product count, and manager.",
+  "hiring": "Stores employment records connecting shops to employees, including start dates and employment status.",
+  "evaluation": "Stores annual bonus and award details for employees."
+ },
+ "n_tables": 4,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}

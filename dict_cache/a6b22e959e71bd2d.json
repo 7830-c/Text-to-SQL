@@ -1,0 +1,25 @@
+{
+ "overview": "This database is designed to manage global automotive information, tracking the geographic origins of car manufacturers and their models. It connects vehicles to the countries and continents where their makers are based, while also storing specific car names and detailed technical performance data across different production years.",
+ "areas": [
+  "Geographic data: continents, countries",
+  "Manufacturers: car_makers",
+  "Car models and names: model_list, car_names",
+  "Technical specifications: cars_data"
+ ],
+ "notes": [
+  "countries.Continent references continents.ContId.",
+  "model_list.Maker references car_makers.Id."
+ ],
+ "tables": {
+  "continents": "This table stores continents with their unique identifiers and names.",
+  "countries": "This table stores countries along with their names and associated continent identifiers.",
+  "car_makers": "This table stores automobile makers including their full names and countries.",
+  "model_list": "This table stores car models linked to their respective makers.",
+  "car_names": "This table stores names and models associated with car makes.",
+  "cars_data": "This table stores technical specifications and performance data for cars by year."
+ },
+ "n_tables": 6,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}
