@@ -44,8 +44,6 @@ def _provider_label(p: str) -> str:
 
 
 def is_public_mode():
-    if "_public_mode_override" in st.session_state:
-        return st.session_state["_public_mode_override"]
     return config.PUBLIC_MODE
 
 
@@ -193,13 +191,29 @@ button[kind="primary"] {{
 }}
 
 /* ── Form submit button — white text always ── */
+.stFormSubmitButton > button,
+.stFormSubmitButton > button *,
+.stFormSubmitButton > button p,
+.stFormSubmitButton > button span,
+.stFormSubmitButton > button div,
+.stButton > button[kind="primary"],
+.stButton > button[kind="primary"] *,
+.stButton > button[kind="primary"] p,
+.stButton > button[kind="primary"] span,
+button[kind="primary"],
+button[kind="primary"] *,
+button[kind="primary"] p,
+button[kind="primary"] span {{
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}}
+
 .stFormSubmitButton > button {{
     border-radius: 8px !important;
     font-weight: 700 !important;
     font-size: 0.9rem !important;
     padding: 0.5rem 2rem !important;
     background: linear-gradient(135deg, var(--accent), var(--accent2)) !important;
-    color: #ffffff !important;
     border: none !important;
     box-shadow: 0 2px 14px rgba(79,70,229,0.3) !important;
     transition: all 0.15s ease !important;
@@ -210,6 +224,11 @@ button[kind="primary"] {{
     transform: translateY(-1px) !important;
     box-shadow: 0 5px 22px rgba(79,70,229,0.45) !important;
     color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}}
+.stFormSubmitButton > button:hover:not([disabled]) * {{
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
 }}
 .stFormSubmitButton > button:disabled {{
     opacity: 0.35 !important;
@@ -600,12 +619,63 @@ code, pre {{
 
 /* ── Alerts ── */
 .stAlert {{
-    border-radius: 8px !important;
-    border-left-width: 4px !important;
-    background: var(--surface) !important;
+    border-radius: 9px !important;
+    border-left-width: 4.5px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
 }}
-.stAlert p {{ color: var(--text) !important; }}
-.stAlert [data-testid="stAlertContainer"] {{ background: var(--surface) !important; }}
+.stAlert p {{
+    color: var(--text) !important;
+    font-size: 0.9rem !important;
+}}
+
+/* Warning alerts (colored yellow/amber) */
+.stAlert:has(svg[data-testid="stIconWarning"]),
+div[data-testid="stAlert"]:has([data-baseweb*="warning"]),
+div[data-testid="stAlert"][kind="warning"] {{
+    background: rgba(245, 158, 11, 0.12) !important;
+    border: 1.5px solid rgba(245, 158, 11, 0.35) !important;
+    border-left: 5px solid #f59e0b !important;
+}}
+.stAlert:has(svg[data-testid="stIconWarning"]) [data-testid="stAlertContainer"] {{
+    background: transparent !important;
+}}
+
+/* Error alerts (colored red) */
+.stAlert:has(svg[data-testid="stIconError"]),
+div[data-testid="stAlert"]:has([data-baseweb*="error"]),
+div[data-testid="stAlert"][kind="error"] {{
+    background: rgba(239, 68, 68, 0.12) !important;
+    border: 1.5px solid rgba(239, 68, 68, 0.35) !important;
+    border-left: 5px solid #ef4444 !important;
+}}
+.stAlert:has(svg[data-testid="stIconError"]) [data-testid="stAlertContainer"] {{
+    background: transparent !important;
+}}
+
+/* ── Quota warning banner (colored amber callout) ── */
+.quota-warning-banner {{
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(217, 119, 6, 0.10)) !important;
+    border: 1.5px solid #f59e0b !important;
+    border-left: 5px solid #f59e0b !important;
+    border-radius: 10px !important;
+    padding: 0.95rem 1.25rem !important;
+    margin: 0.8rem 0 !important;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.15) !important;
+}}
+.quota-warning-title {{
+    color: #d97706 !important;
+    font-size: 0.96rem !important;
+    font-weight: 700 !important;
+    margin-bottom: 0.35rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+}}
+.quota-warning-desc {{
+    color: var(--text) !important;
+    font-size: 0.88rem !important;
+    line-height: 1.55 !important;
+}}
 
 /* ── Download button ── */
 .stDownloadButton > button {{
@@ -1394,26 +1464,11 @@ with _scol:
             value=st.session_state["look_at_data"], key="_pop_look",
             help="Reads real values from DB and sends them to the AI to help fix queries.")
 
-        # Environment Mode Switch
-        st.markdown('<span class="pop-sep">Environment Mode</span>', unsafe_allow_html=True)
-        _cur_pub = is_public_mode()
-        _mode_toggle = st.toggle(
-            "Production Mode",
-            value=_cur_pub,
-            help="Toggle between Local Dev Mode (all 160+ DBs, unlimited queries) and Production Mode (10 curated sample DBs, demo quotas).",
-            key="_toggle_public_mode",
-        )
-        if _mode_toggle != _cur_pub:
-            st.session_state["_public_mode_override"] = _mode_toggle
-            st.rerun()
-
-        if is_public_mode():
-            st.caption("Active: **Production Mode** (10 curated sample DBs with demo quotas)")
+        if config.PUBLIC_MODE:
             st.markdown('<span class="pop-sep">Demo quota</span>', unsafe_allow_html=True)
             _left = max(config.DEMO_QUESTIONS_PER_SESSION - st.session_state["asked"], 0)
-            st.caption(f"Free demo questions remaining: **{_left}**")
-        else:
-            st.caption("Active: **Local Dev Mode** (all 160+ Spider databases, no rate limits)")
+            st.caption(f"Free demo questions remaining: **{_left}** of {config.DEMO_QUESTIONS_PER_SESSION}")
+            st.caption("Add your own API key above for unlimited queries.")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1522,6 +1577,23 @@ with tab_ask:
     else:
         st.info("Please select or upload a database above to get started.")
 
+    if is_public_mode() and not api_key and st.session_state["asked"] >= config.DEMO_QUESTIONS_PER_SESSION:
+        st.markdown(f"""
+<div class="quota-warning-banner">
+  <div class="quota-warning-title">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line>
+      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+    Free Demo Limit Reached ({config.DEMO_QUESTIONS_PER_SESSION}/{config.DEMO_QUESTIONS_PER_SESSION})
+  </div>
+  <div class="quota-warning-desc">
+    You have used your free demo questions for this session. Add your free <b>Google Gemini</b> or <b>Groq API key</b> in <b>Settings</b> (top-right) for unlimited queries.
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
     # Full-width query form
     with st.form("query_form", enter_to_submit=True, border=False):
         question = st.text_input(
@@ -1569,11 +1641,46 @@ with tab_ask:
         blocked = None
         if is_public_mode() and not api_key:
             if st.session_state["asked"] >= config.DEMO_QUESTIONS_PER_SESSION:
-                blocked = "You have used your free demo questions. Add your API key in Settings."
+                blocked = "quota"
             elif not use_demo_slot():
-                blocked = "Today's shared demo allowance is used up. Add your API key in Settings, or try tomorrow."
-        if blocked:
-            st.warning(blocked)
+                blocked = "daily"
+
+        if blocked == "quota":
+            st.markdown(f"""
+<div class="quota-warning-banner">
+  <div class="quota-warning-title">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line>
+      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+    Demo Question Limit Reached ({config.DEMO_QUESTIONS_PER_SESSION}/{config.DEMO_QUESTIONS_PER_SESSION})
+  </div>
+  <div class="quota-warning-desc">
+    You have used all <b>{config.DEMO_QUESTIONS_PER_SESSION} free demo questions</b> for this session.<br>
+    To continue asking unlimited questions, click <b>Settings</b> in the top-right and add your free <b>Google Gemini</b> or <b>Groq API key</b>.
+  </div>
+</div>
+""", unsafe_allow_html=True)
+            st.stop()
+        elif blocked == "daily":
+            st.markdown("""
+<div class="quota-warning-banner">
+  <div class="quota-warning-title">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line>
+      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+    Daily Demo Allowance Reached
+  </div>
+  <div class="quota-warning-desc">
+    Today's shared public demo allowance has been reached.<br>
+    Please click <b>Settings</b> in the top-right and add your own free <b>Google Gemini</b> or <b>Groq API key</b> for immediate, unlimited queries.
+  </div>
+</div>
+""", unsafe_allow_html=True)
+            st.stop()
         else:
             if is_public_mode() and not api_key:
                 st.session_state["asked"] += 1
