@@ -792,6 +792,97 @@ hr {{
     color: var(--text2); margin-bottom: 0.5rem; display: block;
 }}
 
+/* ── Horizontally scrollable sample questions ── */
+div[data-testid="element-container"]:has(.q-pill-item) {{
+    display: none !important;
+    height: 0px !important;
+    margin: 0px !important;
+    padding: 0px !important;
+}}
+
+div[data-testid="stHorizontalBlock"]:has(.q-pill-item),
+div:has(> .q-scroll-marker) + div[data-testid="stHorizontalBlock"],
+div[data-testid="element-container"]:has(.q-scroll-marker) + div[data-testid="stHorizontalBlock"] {{
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    gap: 0.55rem !important;
+    padding: 0.2rem 0.1rem 0.75rem 0.1rem !important;
+    margin-bottom: 0.5rem !important;
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: var(--accent) var(--surface2) !important;
+}}
+
+div[data-testid="stHorizontalBlock"]:has(.q-pill-item) > div[data-testid="stColumn"],
+div:has(> .q-scroll-marker) + div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"],
+div[data-testid="element-container"]:has(.q-scroll-marker) + div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {{
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    max-width: none !important;
+}}
+
+div[data-testid="stHorizontalBlock"]:has(.q-pill-item) .stButton,
+div:has(> .q-scroll-marker) + div[data-testid="stHorizontalBlock"] .stButton,
+div[data-testid="element-container"]:has(.q-scroll-marker) + div[data-testid="stHorizontalBlock"] .stButton {{
+    width: auto !important;
+}}
+
+div[data-testid="stHorizontalBlock"]:has(.q-pill-item) .stButton > button,
+div:has(> .q-scroll-marker) + div[data-testid="stHorizontalBlock"] .stButton > button,
+div[data-testid="element-container"]:has(.q-scroll-marker) + div[data-testid="stHorizontalBlock"] .stButton > button {{
+    white-space: nowrap !important;
+    border-radius: 9999px !important;
+    padding: 0.42rem 1.05rem !important;
+    font-size: 0.83rem !important;
+    font-weight: 500 !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+    transition: all 0.16s ease !important;
+    display: inline-flex !important;
+    align-items: center !important;
+}}
+
+div[data-testid="stHorizontalBlock"]:has(.q-pill-item) .stButton > button:hover,
+div:has(> .q-scroll-marker) + div[data-testid="stHorizontalBlock"] .stButton > button:hover,
+div[data-testid="element-container"]:has(.q-scroll-marker) + div[data-testid="stHorizontalBlock"] .stButton > button:hover {{
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+    background: var(--surface2) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 3px 10px rgba(79,70,229,0.18) !important;
+}}
+
+/* Webkit scrollbar for the questions row */
+div[data-testid="stHorizontalBlock"]:has(.q-pill-item)::-webkit-scrollbar,
+div:has(> .q-scroll-marker) + div[data-testid="stHorizontalBlock"]::-webkit-scrollbar,
+div[data-testid="element-container"]:has(.q-scroll-marker) + div[data-testid="stHorizontalBlock"]::-webkit-scrollbar {{
+    height: 5px !important;
+}}
+div[data-testid="stHorizontalBlock"]:has(.q-pill-item)::-webkit-scrollbar-track,
+div:has(> .q-scroll-marker) + div[data-testid="stHorizontalBlock"]::-webkit-scrollbar-track,
+div[data-testid="element-container"]:has(.q-scroll-marker) + div[data-testid="stHorizontalBlock"]::-webkit-scrollbar-track {{
+    background: var(--surface2) !important;
+    border-radius: 4px !important;
+}}
+div[data-testid="stHorizontalBlock"]:has(.q-pill-item)::-webkit-scrollbar-thumb,
+div:has(> .q-scroll-marker) + div[data-testid="stHorizontalBlock"]::-webkit-scrollbar-thumb,
+div[data-testid="element-container"]:has(.q-scroll-marker) + div[data-testid="stHorizontalBlock"]::-webkit-scrollbar-thumb {{
+    background: var(--border) !important;
+    border-radius: 4px !important;
+}}
+div[data-testid="stHorizontalBlock"]:has(.q-pill-item)::-webkit-scrollbar-thumb:hover,
+div:has(> .q-scroll-marker) + div[data-testid="stHorizontalBlock"]::-webkit-scrollbar-thumb:hover,
+div[data-testid="element-container"]:has(.q-scroll-marker) + div[data-testid="stHorizontalBlock"]::-webkit-scrollbar-thumb:hover {{
+    background: var(--accent) !important;
+}}
+
 /* ── Loading animation ── */
 @keyframes dotPulse {{
     0%, 80%, 100% {{ opacity: 0.15; transform: scale(0.8); }}
@@ -1408,20 +1499,26 @@ with tab_ask:
         with _run_col:
             go = st.form_submit_button("Run", type="primary", disabled=not db_id)
 
-    # Example questions (7 random questions in a 2-column grid)
+    # Example questions (7 random questions in a single horizontally scrollable row)
     if db_id and source == "Sample database":
         exs = get_sample_questions(db_id, n=7)
         if exs:
-            st.markdown('<span class="ex-label">Example questions (click to ask)</span>', unsafe_allow_html=True)
-            col1, col2 = st.columns(2)
+            st.markdown(
+                '<div class="q-scroll-marker"></div>'
+                '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">'
+                '<span class="ex-label" style="margin-bottom:0;">Example questions (click to ask)</span>'
+                '<span style="font-size:0.75rem; color:var(--text2); font-weight:500;">&larr; Scroll horizontally &rarr;</span>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+            cols = st.columns(len(exs))
             for i, eq in enumerate(exs):
-                target_col = col1 if i % 2 == 0 else col2
-                with target_col:
+                with cols[i]:
+                    st.markdown('<span class="q-pill-item" style="display:none;"></span>', unsafe_allow_html=True)
                     st.button(
                         eq,
                         key=f"ex_{db_id}_{i}",
                         on_click=lambda q=eq: st.session_state.update(q=q),
-                        use_container_width=True,
                     )
     elif db_id and source != "Sample database":
         st.caption("Custom database active. Switch to the **Explore Database** tab above to view your tables, columns, and data.")
