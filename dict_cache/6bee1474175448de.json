@@ -1,0 +1,25 @@
+{
+ "overview": "This database is designed to manage information related to aviation, including pilots, aircraft models, and airports. It tracks specific matches or racing events involving pilots and aircraft, as well as the statistical data and operational relationships between airports and different aircraft.",
+ "areas": [
+  "Pilots: pilot",
+  "Aircraft: aircraft",
+  "Racing Matches: match",
+  "Airports and Statistics: airport",
+  "Airport and Aircraft Relationships: airport_aircraft"
+ ],
+ "notes": [
+  "The airport_aircraft table uses Airport_ID and Aircraft_ID to link airports with aircraft.",
+  "The pilot table's Pilot_Id corresponds to the pilots referenced in other tables."
+ ],
+ "tables": {
+  "pilot": "Stores information about pilots, including their identification number, name, and age.",
+  "aircraft": "Stores details about various aircraft models, such as weight, disk area, and descriptions.",
+  "match": "Stores records of racing matches, including location, date, winning pilot, and aircraft.",
+  "airport": "Stores statistical data for various airports, including passenger counts and freight metrics.",
+  "airport_aircraft": "Stores relationships between airports and the aircraft that use them."
+ },
+ "n_tables": 5,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-10-26"
+}

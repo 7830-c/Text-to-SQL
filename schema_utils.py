@@ -85,7 +85,10 @@ def get_schema(db_id, n_samples=3):
                 name = col["name"].lower()
                 if not name.endswith("_id") or name == "id" or name in have:
                     continue
-                targets = by_key.get(name[:-3], set())
+                stem, targets = name[:-3], set()
+                while stem and not targets:          # assigned_cohort -> cohort
+                    targets = by_key.get(stem, set())
+                    stem = stem.split("_", 1)[1] if "_" in stem else ""
                 if len(targets) != 1:
                     continue                      # no match, or ambiguous: skip
                 target = next(iter(targets))

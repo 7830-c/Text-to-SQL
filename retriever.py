@@ -63,11 +63,7 @@ def build_index(db_id):
 
 
 def expand_with_fks(selected, schema):
-    """
-    Add tables the LLM will likely need for joins:
-      1) tables referenced by a foreign key from a selected table
-      2) 'bridge' tables whose FKs point to 2+ of the tables chosen so far
-    """
+    """Add tables the LLM will likely need for joins. Inferred keys only add the table they point to."""
     result = list(selected)
     for t in selected:
         for fk in schema[t]["fks"]:
@@ -78,11 +74,10 @@ def expand_with_fks(selected, schema):
     for t, info in schema.items():
         if t in chosen:
             continue
-        targets = {fk["ref_table"] for fk in info["fks"]} & chosen
+        targets = {fk["ref_table"] for fk in info["fks"] if not fk.get("inferred")} & chosen
         if len(targets) >= 2:
             result.append(t)
     return result
-
 
 def retrieve(question, db_id, k=3, use_fk_expansion=True):
     """Return the most relevant tables for a question."""

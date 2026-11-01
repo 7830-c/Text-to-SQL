@@ -73,6 +73,8 @@ def chips(history):
                 label, cls = "Execute", "ok"
             else:
                 label, cls = "Execute: error", "bad"
+        elif s == "look_at_data":
+            label, cls = "Look at data", "ok"
         else:
             label, cls = f"Correct #{h['attempt']}", "fix"
         parts.append(f'<span class="chip {cls}">{label}</span>')
@@ -153,7 +155,18 @@ def agent_report(r):
                 else:
                     st.markdown(f"**{i}. Run query** · database error · {t}")
                     st.code(h["error"], language="text")            
-
+            elif s == "look_at_data":
+                st.markdown(f"**{i}. Look at the data** · {t}")
+                for line in h.get("found", []):
+                    st.caption(line.lstrip("- "))
+                if not h.get("found"):
+                    st.caption("None of the words in the question were found as stored values in the chosen tables.")
+                if h.get("enum_columns"):
+                    st.caption(f"{h['enum_columns']} small-value columns were listed in the prompt.")
+                if h.get("timed_out"):
+                    st.caption("The search hit its time limit, so some columns were skipped.")
+                if show and h.get("notes"):
+                    st.code(h["notes"], language="text")
             else:
                 st.markdown(f"**{i}. Correction attempt {h['attempt']}** · {who(h)} · {t}")
                 st.caption("The model was shown the failed query and the database error from the "
@@ -284,8 +297,8 @@ with st.sidebar:
         st.toggle("Show full prompts in the agent report", key="show_prompts")
         st.toggle("Let the agent look at values in my data when a query returns nothing",
                   value=not config.PUBLIC_MODE, key="look_at_data",
-                  help="If a query returns 0 rows, a few real values from the columns it filtered on "
-                       "(for example how a name is spelled) are sent to the AI provider to help it fix the query.")
+                  help="Reads real values from your database (how names, codes and statuses are spelled) and sends the ones it finds to the AI provider to help write and fix queries.")
+
 
     if config.PUBLIC_MODE:
         st.divider()
@@ -362,6 +375,8 @@ with tab_ask:
                                 st.write(f"Query ran successfully ({h['rows']} rows)")
                             else:
                                 st.write(f"Database error: {update['error']}")
+                        elif node == "ground":
+                            st.write("Looked up how your words are stored in the data")
                         elif node == "correct":
                             st.write(f"Correction attempt {update['retry_count']}: rewrote the query")
                     

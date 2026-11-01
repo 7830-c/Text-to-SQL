@@ -13,12 +13,14 @@ import dictionary
 
 import config
 import recovery
+import grounding
 
 
 class AgentState(TypedDict):
     question: str
     db_id: str
     schema_text: str
+    data_notes: str
     tables: List[str]
     sql: str
     result: Optional[List[Any]]
@@ -42,6 +44,7 @@ def pick_tables_llm(question, db_id, provider=None, api_key=None, max_tables=6, 
     answer = ask_llm(prompt, provider=provider, api_key=api_key, info=info)
     wanted = {w.strip(" `\"'*-.").lower() for w in re.split(r"[,\n]", answer)}
     picked = [t for t in schema if t.lower() in wanted][:max_tables]
+    picked = [t for t in picked if schema[t].get("rows") != 0] or picked   # skip tables with no rows
     return picked, answer, prompt
 
 def build_graph(use_retrieval=True, max_retries=3, k=3, provider=None, api_key=None,
@@ -80,6 +83,19 @@ def build_graph(use_retrieval=True, max_retries=3, k=3, provider=None, api_key=N
         return {"schema_text": schema_text, "tables": tables,
                 "history": state["history"] + [entry]}
 
+    def _context(state):
+        notes = ("\n\n" + state["data_notes"]) if state.get("data_notes") else ""
+        return dictionary.context_for(state["db_id"], state["tables"]) + notes + (recovery.RULES if robust else "")
+
+    def ground(state):
+        t0 = time.time()
+        try:
+            notes, detail = grounding.data_notes(state["db_id"], state["question"], state["tables"])
+        except Exception as e:
+            notes, detail = "", {"error": str(e)[:200]}
+        entry = {"step": "look_at_data", "notes": notes, "seconds": round(time.time() - t0, 2), **detail}
+        return {"data_notes": notes, "history": state["history"] + [entry]}    
+
     def generate(state):
         t0 = time.time()
         if state["sql"]:   # a SQL was supplied for testing; use it instead of asking the LLM
@@ -87,7 +103,7 @@ def build_graph(use_retrieval=True, max_retries=3, k=3, provider=None, api_key=N
             entry = {"step": "generate", "sql": sql, "seconds": 0.0,
                      "note": "SQL was supplied directly, no model call."}
         else:
-            context = dictionary.context_for(state["db_id"], state["tables"]) + (recovery.RULES if robust else "")
+            context = _context(state)
             prompt = GENERATOR_PROMPT.format(
                 schema=state["schema_text"], context=context, question=state["question"])
             info = {}
@@ -127,7 +143,7 @@ def build_graph(use_retrieval=True, max_retries=3, k=3, provider=None, api_key=N
 
     def correct(state):
         t0 = time.time()
-        context = dictionary.context_for(state["db_id"], state["tables"]) + (recovery.RULES if robust else "")
+        context = _context(state)
         prompt = CORRECTOR_PROMPT.format(
             schema=state["schema_text"], context=context, question=state["question"],
             sql=state["sql"], error=state["error"])
@@ -153,7 +169,12 @@ def build_graph(use_retrieval=True, max_retries=3, k=3, provider=None, api_key=N
     g.add_node("correct", correct)
 
     g.add_edge(START, "retrieve_schema")
-    g.add_edge("retrieve_schema", "generate")
+    if look_at_data:
+        g.add_node("ground", ground)
+        g.add_edge("retrieve_schema", "ground")
+        g.add_edge("ground", "generate")
+    else:
+        g.add_edge("retrieve_schema", "generate")
     g.add_edge("generate", "execute")
     g.add_conditional_edges("execute", route, {"done": END, "fix": "correct"})
     g.add_edge("correct", "execute")
@@ -161,7 +182,7 @@ def build_graph(use_retrieval=True, max_retries=3, k=3, provider=None, api_key=N
 
 
 def _start_state(question, db_id, seed_sql=""):
-    return {"question": question, "db_id": db_id, "schema_text": "", "tables": [],
+    return {"question": question, "db_id": db_id, "schema_text": "","data_notes": "", "tables": [],
             "sql": seed_sql, "result": None, "error": None,
             "retry_count": 0, "history": []}
 
