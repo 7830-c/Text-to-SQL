@@ -212,8 +212,8 @@ The agent execution flow is orchestrated via **LangGraph**:
 
 ### Step 1: Clone the Repository & Create Virtual Environment
 ```bash
-git clone https://github.com/<your-username>/Text-to-SQL.git
-cd Text-to-SQL
+git clone https://github.com/7830-c/QueryForge-Agentic-Text-to-SQL-System.git
+cd QueryForge-Agentic-Text-to-SQL-System
 
 # Create virtual environment
 python -m venv .venv
