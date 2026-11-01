@@ -1,0 +1,71 @@
+name: Keep QueryForge Streamlit App Warm
+
+on:
+  schedule:
+    # Runs every 6 hours at 17 minutes past the hour (e.g., 00:17, 06:17, 12:17, 18:17 UTC)
+    - cron: "17 */6 * * *"
+  workflow_dispatch: # Allows manual trigger from the Actions tab anytime
+
+jobs:
+  wake-app:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright & Chromium
+        run: |
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
+
+      - name: Ping and Wake Streamlit App
+        env:
+          APP_URL: ${{ secrets.STREAMLIT_APP_URL || secrets.QUERYFORGE_APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "Error: Neither STREAMLIT_APP_URL nor QUERYFORGE_APP_URL secret is set in repository secrets."
+            exit 1
+          fi
+
+          node <<'EOF'
+          const { chromium } = require("playwright");
+
+          (async () => {
+            const url = process.env.APP_URL;
+            console.log(`Connecting to: ${url}`);
+
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage();
+
+            try {
+              await page.goto(url, {
+                waitUntil: "domcontentloaded",
+                timeout: 60000
+              });
+
+              // Allow time for Streamlit WebSocket / scripts to connect
+              await page.waitForTimeout(8000);
+
+              // Check if Streamlit Cloud shows the sleeping screen ("Yes, get this app back up!")
+              const wakeButton = page.locator('button:has-text("get this app back up"), button:has-text("Wake app"), button:has-text("Yes")');
+              if (await wakeButton.count() > 0) {
+                console.log("App was asleep! Clicking 'Yes, get this app back up!' button...");
+                await wakeButton.first().click();
+                await page.waitForTimeout(15000);
+              }
+
+              const title = await page.title();
+              console.log(`Loaded page successfully. Title: "${title}"`);
+              console.log("QueryForge Streamlit app is active and warm!");
+            } catch (err) {
+              console.error("Error during ping:", err.message);
+              process.exit(1);
+            } finally {
+              await browser.close();
+            }
+          })();
+          EOF
