@@ -18,8 +18,12 @@ from executor import preview_sql
 from schema_utils import get_db_path, get_schema
 from uploads import cleanup_old_uploads, delete_upload, save_upload
 
+from PIL import Image
+
 # ── page config ──────────────────────────────────────────────────────────────
-st.set_page_config(page_title="QueryForge", page_icon=None, layout="wide")
+_icon_path = Path("assets/logo.png")
+_page_icon = Image.open(_icon_path) if _icon_path.exists() else "🗄️"
+st.set_page_config(page_title="QueryForge", page_icon=_page_icon, layout="wide")
 
 # ── known providers ───────────────────────────────────────────────────────────
 _ALL_PROVIDERS = ["google", "groq"]
@@ -39,11 +43,17 @@ def _provider_label(p: str) -> str:
     return p.title()
 
 
+def is_public_mode():
+    if "_public_mode_override" in st.session_state:
+        return st.session_state["_public_mode_override"]
+    return config.PUBLIC_MODE
+
+
 # ── session state defaults ────────────────────────────────────────────────────
 st.session_state.setdefault("dark_mode", False)
 st.session_state.setdefault("asked", 0)
 st.session_state.setdefault("show_prompts", False)
-st.session_state.setdefault("look_at_data", not config.PUBLIC_MODE)
+st.session_state.setdefault("look_at_data", not is_public_mode())
 st.session_state.setdefault("max_retries", config.MAX_RETRIES)
 st.session_state.setdefault("pinned_provider", None)
 st.session_state.setdefault("custom_key_provider",
@@ -1008,22 +1018,29 @@ def chips(history):
 
 @st.cache_data
 def all_example_questions(db_id):
-    p = Path(config.SPIDER_DIR) / "dev.json"
-    if not p.exists():
-        return []
-    try:
-        dev = json.load(open(p, encoding="utf-8"))
-        seen = set()
-        out = []
-        for x in dev:
-            if x.get("db_id") == db_id:
-                q = x.get("question", "").strip()
-                if q and q not in seen:
-                    seen.add(q)
-                    out.append(q)
-        return out
-    except Exception:
-        return []
+    spider_dir = Path(config.SPIDER_DIR)
+    seen = set()
+    out = []
+    # Search dev.json first (covers production curated DBs), then train splits so all 160+ DBs have questions
+    candidates = ["dev.json", "train_spider.json", "train_others.json"]
+    for fname in candidates:
+        p = spider_dir / fname
+        if not p.exists():
+            continue
+        try:
+            with open(p, encoding="utf-8") as f:
+                data = json.load(f)
+                for x in data:
+                    if x.get("db_id") == db_id:
+                        q = x.get("question", "").strip()
+                        if q and q not in seen:
+                            seen.add(q)
+                            out.append(q)
+            if out:
+                break
+        except Exception:
+            continue
+    return out
 
 
 def get_sample_questions(db_id, n=7):
@@ -1141,15 +1158,16 @@ def overview_panel(db_id, provider, api_key):
     except Exception:
         return
     d       = dictionary.load_cached(db_id)
-    persist = not (config.PUBLIC_MODE and db_id.startswith("upload_"))
+    pub     = is_public_mode()
+    persist = not (pub and db_id.startswith("upload_"))
     needed  = math.ceil(n / config.DICT_BATCH_TABLES) + 1
-    auto    = (not config.PUBLIC_MODE) and n >= config.DICT_AUTO_MIN_TABLES
+    auto    = (not pub) and n >= config.DICT_AUTO_MIN_TABLES
 
     with st.expander("Database overview", expanded=False):
         if d is None:
-            can_build = db_id.startswith("upload_") or (not config.PUBLIC_MODE)
+            can_build = db_id.startswith("upload_") or (not pub)
             if can_build:
-                if config.PUBLIC_MODE and not api_key:
+                if pub and not api_key:
                     st.info(f"Add your API key in Settings to build an overview ({needed} model calls).")
                 else:
                     if not auto:
@@ -1178,10 +1196,9 @@ def overview_panel(db_id, provider, api_key):
                 f"{d.get('model') or 'the model'}. Descriptions can be wrong.")
             if d.get("notes"):
                 st.markdown("**Model notes:**\n" + "\n".join(f"- {x}" for x in d["notes"]))
-            st.dataframe(
-                pd.DataFrame([{"table": t, "description": v} for t, v in d["tables"].items()]),
-                height=240, use_container_width=True)
-            if (db_id.startswith("upload_") or not config.PUBLIC_MODE) and st.button("Rebuild overview", key=f"rebuild_{db_id}"):
+            df_desc = pd.DataFrame([{"table": t, "description": v} for t, v in d["tables"].items()])
+            st.dataframe(df_desc, hide_index=True, use_container_width=True)
+            if (db_id.startswith("upload_") or not pub) and st.button("Rebuild overview", key=f"rebuild_{db_id}"):
                 dictionary.forget(db_id, delete_disk=True)
                 st.session_state.pop(f"tried_{db_id}", None)
                 st.rerun()
@@ -1209,11 +1226,12 @@ def explore_database_panel(db_id, provider, api_key):
         st.markdown(f"**About this database:** {d['overview']}")
         if d.get("areas"):
             st.caption("Key domains: " + " &middot; ".join(d["areas"]))
-    elif not d and (db_id.startswith("upload_") or not config.PUBLIC_MODE):
+    elif not d and (db_id.startswith("upload_") or not is_public_mode()):
         n = len(tables)
         needed = math.ceil(n / config.DICT_BATCH_TABLES) + 1
-        persist = not (config.PUBLIC_MODE and db_id.startswith("upload_"))
-        if config.PUBLIC_MODE and not api_key:
+        pub = is_public_mode()
+        persist = not (pub and db_id.startswith("upload_"))
+        if pub and not api_key:
             st.info(f"Optional: Add your API key in Settings to generate AI table descriptions for this database ({needed} model calls).")
         else:
             if st.button(f"Generate AI Table Descriptions ({needed} model calls)", key=f"exp_build_{db_id}"):
@@ -1285,7 +1303,7 @@ def explore_database_panel(db_id, provider, api_key):
                 "Foreign Key": f"{fks_map[cname]}" if cname in fks_map else "-",
             })
         if cols_meta:
-            st.dataframe(pd.DataFrame(cols_meta), use_container_width=True)
+            st.dataframe(pd.DataFrame(cols_meta), hide_index=True, use_container_width=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1376,10 +1394,26 @@ with _scol:
             value=st.session_state["look_at_data"], key="_pop_look",
             help="Reads real values from DB and sends them to the AI to help fix queries.")
 
-        if config.PUBLIC_MODE:
+        # Environment Mode Switch
+        st.markdown('<span class="pop-sep">Environment Mode</span>', unsafe_allow_html=True)
+        _cur_pub = is_public_mode()
+        _mode_toggle = st.toggle(
+            "Production Mode",
+            value=_cur_pub,
+            help="Toggle between Local Dev Mode (all 160+ DBs, unlimited queries) and Production Mode (10 curated sample DBs, demo quotas).",
+            key="_toggle_public_mode",
+        )
+        if _mode_toggle != _cur_pub:
+            st.session_state["_public_mode_override"] = _mode_toggle
+            st.rerun()
+
+        if is_public_mode():
+            st.caption("Active: **Production Mode** (10 curated sample DBs with demo quotas)")
             st.markdown('<span class="pop-sep">Demo quota</span>', unsafe_allow_html=True)
             _left = max(config.DEMO_QUESTIONS_PER_SESSION - st.session_state["asked"], 0)
             st.caption(f"Free demo questions remaining: **{_left}**")
+        else:
+            st.caption("Active: **Local Dev Mode** (all 160+ Spider databases, no rate limits)")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1429,7 +1463,7 @@ db_id = None
 with _dc2:
     if source == "Sample database":
         sample_dir = Path(config.SPIDER_DIR) / "database"
-        if config.PUBLIC_MODE:
+        if is_public_mode():
             curated_list = [
                 "concert_singer",
                 "world_1",
@@ -1533,7 +1567,7 @@ with tab_ask:
             st.stop()
 
         blocked = None
-        if config.PUBLIC_MODE and not api_key:
+        if is_public_mode() and not api_key:
             if st.session_state["asked"] >= config.DEMO_QUESTIONS_PER_SESSION:
                 blocked = "You have used your free demo questions. Add your API key in Settings."
             elif not use_demo_slot():
@@ -1541,7 +1575,7 @@ with tab_ask:
         if blocked:
             st.warning(blocked)
         else:
-            if config.PUBLIC_MODE and not api_key:
+            if is_public_mode() and not api_key:
                 st.session_state["asked"] += 1
             try:
                 get_db_path(db_id).touch()
