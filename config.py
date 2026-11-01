@@ -10,6 +10,8 @@ try:
         if isinstance(_v, (str, int, float, bool)):
             _v = str(_v)
             os.environ.setdefault(_k, _v)
+        elif isinstance(_v, (list, tuple)):
+            os.environ.setdefault(_k, ','.join(str(x) for x in _v))
 except Exception:
     pass
 
