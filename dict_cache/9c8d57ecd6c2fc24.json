@@ -1,0 +1,24 @@
+{
+ "overview": "This database is designed to manage an educational institution's extracurricular or campus activities. It tracks individual student and faculty profiles along with their respective participation records in various events. The system acts as a central hub for connecting people to activities and maintaining organizational details.",
+ "areas": [
+  "Activities: Activity",
+  "Students: Student, Participates_in",
+  "Faculty: Faculty, Faculty_Participates_in"
+ ],
+ "notes": [
+  "Participates_in links student IDs to activity IDs.",
+  "Faculty_Participates_in links faculty IDs to activity IDs.",
+  "Student Advisor column likely references faculty IDs, though not formally constrained here."
+ ],
+ "tables": {
+  "Activity": "Stores details about various activities, including their names and unique identifiers.",
+  "Participates_in": "Stores the relationship between students and the activities they participate in.",
+  "Faculty_Participates_in": "Stores the relationship between faculty members and the activities they participate in.",
+  "Student": "Stores personal and academic details for individual students.",
+  "Faculty": "Stores personal and professional details for individual faculty members."
+ },
+ "n_tables": 5,
+ "failed_batches": 0,
+ "model": "gemini-3.5-flash-lite",
+ "created": "2026-11-01"
+}

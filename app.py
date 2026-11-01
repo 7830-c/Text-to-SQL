@@ -1055,24 +1055,28 @@ def overview_panel(db_id, provider, api_key):
 
     with st.expander("Database overview", expanded=False):
         if d is None:
-            if config.PUBLIC_MODE and not api_key:
-                st.info(f"Add your API key in Settings to build an overview ({needed} model calls).")
+            if db_id.startswith("upload_"):
+                if config.PUBLIC_MODE and not api_key:
+                    st.info(f"Add your API key in Settings to build an overview ({needed} model calls).")
+                else:
+                    if not auto:
+                        st.caption("Optional. Helps most on databases with many tables.")
+                    clicked = st.button(f"Build overview ({needed} model calls)", key=f"build_{db_id}")
+                    tried   = st.session_state.get(f"tried_{db_id}", False)
+                    if clicked or (auto and not tried):
+                        st.session_state[f"tried_{db_id}"] = True
+                        bar = st.progress(0.0, text="Starting...")
+                        try:
+                            d = dictionary.build(
+                                db_id, provider, api_key, persist=persist,
+                                progress=lambda done, total, msg: bar.progress(
+                                    min(done / total, 1.0), text=msg))
+                        except Exception as e:
+                            st.error(f"Could not build overview: {str(e)[:300]}")
+                        bar.empty()
             else:
-                if not auto:
-                    st.caption("Optional. Helps most on databases with many tables.")
-                clicked = st.button(f"Build overview ({needed} model calls)", key=f"build_{db_id}")
-                tried   = st.session_state.get(f"tried_{db_id}", False)
-                if clicked or (auto and not tried):
-                    st.session_state[f"tried_{db_id}"] = True
-                    bar = st.progress(0.0, text="Starting...")
-                    try:
-                        d = dictionary.build(
-                            db_id, provider, api_key, persist=persist,
-                            progress=lambda done, total, msg: bar.progress(
-                                min(done / total, 1.0), text=msg))
-                    except Exception as e:
-                        st.error(f"Could not build overview: {str(e)[:300]}")
-                    bar.empty()
+                st.caption("No overview available for this database.")
+
         if d is not None:
             if d.get("overview"): st.write(d["overview"])
             for a in d.get("areas", []): st.markdown(f"- {a}")
@@ -1084,7 +1088,7 @@ def overview_panel(db_id, provider, api_key):
             st.dataframe(
                 pd.DataFrame([{"table": t, "description": v} for t, v in d["tables"].items()]),
                 height=240, use_container_width=True)
-            if st.button("Rebuild overview", key=f"rebuild_{db_id}"):
+            if db_id.startswith("upload_") and st.button("Rebuild overview", key=f"rebuild_{db_id}"):
                 dictionary.forget(db_id, delete_disk=True)
                 st.session_state.pop(f"tried_{db_id}", None)
                 st.rerun()
@@ -1106,20 +1110,20 @@ def explore_database_panel(db_id, provider, api_key):
         st.warning("This database has no tables.")
         return
 
-    # 1. Database Overview & Descriptions (if cached or generator button)
+    # 1. Database Overview & Descriptions
     d = dictionary.load_cached(db_id)
     if d and d.get("overview"):
         st.markdown(f"**About this database:** {d['overview']}")
         if d.get("areas"):
             st.caption("Key domains: " + " &middot; ".join(d["areas"]))
-    elif not d:
+    elif not d and db_id.startswith("upload_"):
         n = len(tables)
         needed = math.ceil(n / config.DICT_BATCH_TABLES) + 1
         persist = not (config.PUBLIC_MODE and db_id.startswith("upload_"))
         if config.PUBLIC_MODE and not api_key:
-            st.info(f"💡 Optional: Add your API key in Settings to generate AI table descriptions for this database ({needed} model calls).")
+            st.info(f"Optional: Add your API key in Settings to generate AI table descriptions for this database ({needed} model calls).")
         else:
-            if st.button(f"✨ Generate AI Table Descriptions ({needed} model calls)", key=f"exp_build_{db_id}"):
+            if st.button(f"Generate AI Table Descriptions ({needed} model calls)", key=f"exp_build_{db_id}"):
                 bar = st.progress(0.0, text="Generating table descriptions...")
                 try:
                     d = dictionary.build(
@@ -1155,13 +1159,13 @@ def explore_database_panel(db_id, provider, api_key):
     with col_stat:
         st.markdown(
             f"<div style='padding-top:1.8rem; font-size:0.85rem; font-weight:600; color:var(--text2);'>"
-            f"📊 <b>{len(tables)}</b> total tables &nbsp;|&nbsp; <b>{row_count}</b> rows in <code>{selected_table}</code></div>",
+            f"Total tables: <b>{len(tables)}</b> &nbsp;|&nbsp; Rows in <code>{selected_table}</code>: <b>{row_count}</b></div>",
             unsafe_allow_html=True
         )
 
     # 3. Table description from data dictionary
     if d and d.get("tables", {}).get(selected_table):
-        st.info(f"📌 **Table Purpose:** {d['tables'][selected_table]}")
+        st.info(f"**Table Purpose:** {d['tables'][selected_table]}")
 
     # 4. Data Preview & Column Schema Tabs
     t_prev, t_schema = st.tabs([f"Data Preview ({min(10, row_count)} of {row_count} rows)", "Columns & Schema"])
@@ -1184,8 +1188,8 @@ def explore_database_panel(db_id, provider, api_key):
             cols_meta.append({
                 "Column": cname,
                 "Data Type": c["type"] or "TEXT",
-                "Primary Key": "🔑 Yes" if c.get("pk") else "No",
-                "Foreign Key": f"🔗 {fks_map[cname]}" if cname in fks_map else "-",
+                "Primary Key": "Yes" if c.get("pk") else "No",
+                "Foreign Key": f"{fks_map[cname]}" if cname in fks_map else "-",
             })
         if cols_meta:
             st.dataframe(pd.DataFrame(cols_meta), use_container_width=True)
@@ -1332,8 +1336,22 @@ db_id = None
 with _dc2:
     if source == "Sample database":
         sample_dir = Path(config.SPIDER_DIR) / "database"
-        samples    = sorted(p.name for p in sample_dir.iterdir() if p.is_dir()) \
-                     if sample_dir.exists() else []
+        curated_list = [
+            "concert_singer",
+            "world_1",
+            "car_1",
+            "flight_2",
+            "student_transcripts_tracking",
+            "tvshow",
+            "network_1",
+            "pets_1",
+            "orchestra",
+            "employee_hire_evaluation",
+        ]
+        available_curated = [d for d in curated_list if (sample_dir / d).is_dir()] if sample_dir.exists() else []
+        samples = available_curated if available_curated else (
+            sorted(p.name for p in sample_dir.iterdir() if p.is_dir()) if sample_dir.exists() else []
+        )
         if samples:
             db_id = st.selectbox(
                 "Choose a database",
@@ -1392,7 +1410,7 @@ with tab_ask:
             with _hcol:
                 st.markdown('<span class="ex-label">Example questions (click to ask)</span>', unsafe_allow_html=True)
             with _bcol:
-                if st.button("🎲 Shuffle", key=f"shuf_{db_id}", help="Pick 7 different random questions from dev.json", use_container_width=True):
+                if st.button("Shuffle", key=f"shuf_{db_id}", help="Pick 7 different random questions from dev.json", use_container_width=True):
                     st.session_state[f"_q_seed_{db_id}"] = st.session_state.get(f"_q_seed_{db_id}", 0) + 1
                     st.rerun()
 
@@ -1408,7 +1426,7 @@ with tab_ask:
                         use_container_width=True,
                     )
     elif db_id and source != "Sample database":
-        st.caption("💡 Custom database active. Switch to the **Explore Database** tab above to view your tables, columns, and data.")
+        st.caption("Custom database active. Switch to the **Explore Database** tab above to view your tables, columns, and data.")
 
     # ── Run logic ─────────────────────────────────────────────────────────────
     if go:
