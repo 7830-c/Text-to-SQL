@@ -941,9 +941,10 @@ def get_sample_questions(db_id, n=7):
         return []
     if len(all_q) <= n:
         return all_q
-    seed = st.session_state.get(f"_q_seed_{db_id}", 42)
-    rng = random.Random(seed)
-    return rng.sample(all_q, n)
+    session_key = f"_session_q_{db_id}"
+    if session_key not in st.session_state:
+        st.session_state[session_key] = random.sample(all_q, n)
+    return st.session_state[session_key]
 
 
 def _provider_label_short(p: str) -> str:
@@ -1055,7 +1056,8 @@ def overview_panel(db_id, provider, api_key):
 
     with st.expander("Database overview", expanded=False):
         if d is None:
-            if db_id.startswith("upload_"):
+            can_build = db_id.startswith("upload_") or (not config.PUBLIC_MODE)
+            if can_build:
                 if config.PUBLIC_MODE and not api_key:
                     st.info(f"Add your API key in Settings to build an overview ({needed} model calls).")
                 else:
@@ -1088,7 +1090,7 @@ def overview_panel(db_id, provider, api_key):
             st.dataframe(
                 pd.DataFrame([{"table": t, "description": v} for t, v in d["tables"].items()]),
                 height=240, use_container_width=True)
-            if db_id.startswith("upload_") and st.button("Rebuild overview", key=f"rebuild_{db_id}"):
+            if (db_id.startswith("upload_") or not config.PUBLIC_MODE) and st.button("Rebuild overview", key=f"rebuild_{db_id}"):
                 dictionary.forget(db_id, delete_disk=True)
                 st.session_state.pop(f"tried_{db_id}", None)
                 st.rerun()
@@ -1116,7 +1118,7 @@ def explore_database_panel(db_id, provider, api_key):
         st.markdown(f"**About this database:** {d['overview']}")
         if d.get("areas"):
             st.caption("Key domains: " + " &middot; ".join(d["areas"]))
-    elif not d and db_id.startswith("upload_"):
+    elif not d and (db_id.startswith("upload_") or not config.PUBLIC_MODE):
         n = len(tables)
         needed = math.ceil(n / config.DICT_BATCH_TABLES) + 1
         persist = not (config.PUBLIC_MODE and db_id.startswith("upload_"))
@@ -1336,22 +1338,26 @@ db_id = None
 with _dc2:
     if source == "Sample database":
         sample_dir = Path(config.SPIDER_DIR) / "database"
-        curated_list = [
-            "concert_singer",
-            "world_1",
-            "car_1",
-            "flight_2",
-            "student_transcripts_tracking",
-            "tvshow",
-            "network_1",
-            "pets_1",
-            "orchestra",
-            "employee_hire_evaluation",
-        ]
-        available_curated = [d for d in curated_list if (sample_dir / d).is_dir()] if sample_dir.exists() else []
-        samples = available_curated if available_curated else (
-            sorted(p.name for p in sample_dir.iterdir() if p.is_dir()) if sample_dir.exists() else []
-        )
+        if config.PUBLIC_MODE:
+            curated_list = [
+                "concert_singer",
+                "world_1",
+                "car_1",
+                "flight_2",
+                "student_transcripts_tracking",
+                "tvshow",
+                "network_1",
+                "pets_1",
+                "orchestra",
+                "employee_hire_evaluation",
+            ]
+            available_curated = [d for d in curated_list if (sample_dir / d).is_dir()] if sample_dir.exists() else []
+            samples = available_curated if available_curated else (
+                sorted(p.name for p in sample_dir.iterdir() if p.is_dir()) if sample_dir.exists() else []
+            )
+        else:
+            # Local development: show all available databases on disk
+            samples = sorted(p.name for p in sample_dir.iterdir() if p.is_dir()) if sample_dir.exists() else []
         if samples:
             db_id = st.selectbox(
                 "Choose a database",
@@ -1402,26 +1408,18 @@ with tab_ask:
         with _run_col:
             go = st.form_submit_button("Run", type="primary", disabled=not db_id)
 
-    # Example questions (7 random questions in a 2-column grid with shuffle)
+    # Example questions (7 random questions in a 2-column grid)
     if db_id and source == "Sample database":
         exs = get_sample_questions(db_id, n=7)
         if exs:
-            _hcol, _bcol = st.columns([5, 1])
-            with _hcol:
-                st.markdown('<span class="ex-label">Example questions (click to ask)</span>', unsafe_allow_html=True)
-            with _bcol:
-                if st.button("Shuffle", key=f"shuf_{db_id}", help="Pick 7 different random questions from dev.json", use_container_width=True):
-                    st.session_state[f"_q_seed_{db_id}"] = st.session_state.get(f"_q_seed_{db_id}", 0) + 1
-                    st.rerun()
-
+            st.markdown('<span class="ex-label">Example questions (click to ask)</span>', unsafe_allow_html=True)
             col1, col2 = st.columns(2)
-            seed = st.session_state.get(f"_q_seed_{db_id}", 0)
             for i, eq in enumerate(exs):
                 target_col = col1 if i % 2 == 0 else col2
                 with target_col:
                     st.button(
                         eq,
-                        key=f"ex_{db_id}_{i}_{seed}",
+                        key=f"ex_{db_id}_{i}",
                         on_click=lambda q=eq: st.session_state.update(q=q),
                         use_container_width=True,
                     )
